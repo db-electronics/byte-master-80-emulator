@@ -27,8 +27,8 @@ public:
 
 	// addressing modes
 	void imp(uint8_t); // implied
-	void reg(uint8_t r); // register 8 bit source
-	void rgx(uint8_t s); // register 16 bit source
+	void reg(uint8_t); // register 8 bit source --rrr---- 
+	void rgx(uint8_t); // register 16 bit source --rr----
 	void imm(uint8_t); // immediate
 	void imx(uint8_t); // immediate extended
 	void abs(uint8_t); // absolute
@@ -52,7 +52,11 @@ public:
 
 	uint8_t nop(uint8_t);
 
+	// DEC
+	uint8_t decr(uint8_t);	// decrement register
+
 	// INC
+	uint8_t incr(uint8_t);  // increment register
 	uint8_t incrp(uint8_t);	// increment register pair
 
 	// LOAD
@@ -68,6 +72,9 @@ private:
 	void memoryWrite(uint16_t address, uint8_t data);
 	uint8_t ioRead(uint8_t address);
 	void ioWrite(uint8_t address, uint8_t data);
+
+	uint8_t* getRegister(uint8_t r);
+	uint16_t* getRegisterPair(uint8_t r);
 
 
 	// thanks to https://github.com/redcode/Z80/blob/master/sources/Z80.c for parity lookup
@@ -91,34 +98,31 @@ private:
 		/* F */ 4, 0, 0, 4, 0, 4, 4, 0, 0, 4, 4, 0, 4, 0, 0, 4
 	};
 
-	// EXX register re-naming
 
-	uint8_t alu_temp;
 	uint8_t op8;
 	uint16_t op16;
+	uint8_t* reg8;
+	uint16_t* reg16;
 	uint16_t addr_abs;
 	uint16_t addr_rel;
-
-	uint8_t afp;	// rename a and f registers
-	uint8_t rpp;	// rename bc, de and hl registers
 
 	struct _AF {
 		uint8_t a;
 		union _flags {
 			struct {
-				unsigned C : 1;
-				unsigned N : 1;
-				unsigned PV : 1;
+				unsigned c : 1;
+				unsigned n : 1;
+				unsigned pv : 1;
 				unsigned : 1;
-				unsigned H : 1;
+				unsigned h : 1;
 				unsigned : 1;
-				unsigned Z : 1;
-				unsigned S : 1;
+				unsigned z : 1;
+				unsigned s : 1;
 			};
 			uint8_t byte;
-		}f;
+		}flags;
 	};
-	_AF af[2];
+	_AF af, afp;
 
 	// BC register
 	union _BC {
@@ -126,10 +130,10 @@ private:
 			uint8_t b;
 			uint8_t c;
 		};
-		uint16_t word;
+		uint16_t pair;
 	};
 
-	_BC bc[2];
+	_BC bc, bcp;
 
 	// DE register
 	union _DE {
@@ -137,10 +141,10 @@ private:
 			uint8_t d;
 			uint8_t e;
 		};
-		uint16_t word;
+		uint16_t pair;
 	};
 
-	_DE de[2];
+	_DE de, dep;
 
 	// HL register
 	union _HL {
@@ -148,10 +152,10 @@ private:
 			uint8_t h;
 			uint8_t l;
 		};
-		uint16_t word;
+		uint16_t pair;
 	};
 
-	_HL hl[2];
+	_HL hl, hlp;
 
 	uint8_t i, r, iff2;
 	uint16_t sp, pc, ix, iy;
