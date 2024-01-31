@@ -7,13 +7,18 @@ db80::db80()
 	using c = db80;
 	instructions =
 	{
-		{ "nop", 0x00, &c::imp, &c::nop, 4 }, 
-		{ "ld bc,nn", 0x01, &c::imx, &c::ldrp, 10 }, 
-		{ "ld (bc),a", 0x02, &c::indreg, &c::ldmb, 7 }, 
-		{ "inc bc", 0x03, &c::imp, &c::incrp, 6 }, 
-		{ "inc b", 0x04, &c::reg, &c::incr, 4 }, 
-		{ "dec b", 0x05, &c::reg, &c::decr, 4 }, 
-		{ "ld b,n", 0x06, &c::imm, &c::ldr, 7 }
+		{ "nop",       0x00, 4,  &c::imp, &c::nop }, 
+		{ "ld bc,nn",  0x01, 10, &c::imxrpd, &c::ldrp },
+		{ "ld (bc),a", 0x02, 7,  &c::indrpa, &c::ldm },
+		{ "inc bc",    0x03, 6,  &c::regp, &c::incrp },
+		{ "inc b",     0x04, 4,  &c::reg, &c::incr }, 
+		{ "dec b",     0x05, 4,  &c::reg, &c::decr }, 
+		{ "ld b,n",    0x06, 7,  &c::immrd, &c::ldr },
+		{ "rlca",      0x07, 4,  &c::imp, &c::rlca },
+		{ "ex af,af`", 0x08, 4,  &c::imp, &c::exaf },
+		{ "add hl,bc", 0x09, 11, &c::hldrp, &c::addrp }, // 587, 203
+		{ "ld a,(bc)", 0x0A, 7,  &c::indrp, &c::ldr }, // 614, 329
+		{ "dec bc",    0x0B, 6,  &c::regp, &c::decrp },
 	};
 }
 
@@ -26,8 +31,39 @@ void db80::reset(void) {
 
 	sp = 0x0000;
 	pc = 0x0000;
+	currentOpCycles = 0;
 }
 
+void db80::setFlag(uint8_t f, bool condition) {
+	if (condition) {
+		af.flags |= f;
+	}
+	else {
+		af.flags &= ~f;
+	}
+}
+
+uint32_t db80::clock(int32_t runForCycles) {
+	static _instruction instr;
+
+	while (runForCycles > 0) {
+		if (currentOpCycles == 0) {
+			instr = instructions[memoryRead(pc++)];
+			r = (r + 1) & 0x7F;
+
+			// addressing mode
+			currentOpCycles = instr.cycles;
+			(this->*instr.addrmode)(instr.opcode);
+			// some instructions can add cycles
+			currentOpCycles += (this->*instr.operate)(instr.opcode);
+		}
+		currentOpCycles--;
+		runForCycles--;
+	}
+	// TODO
+	// return difference in cycles
+	return currentOpCycles;
+}
 
 
 // addressing modes
@@ -36,47 +72,53 @@ void db80::imp(uint8_t opcode) {
 
 }
 
-// register is source
+// register is destination
 void db80::reg(uint8_t opcode) {
 	reg8 = getRegister((opcode >> 3) & 0x07);
 }
 
-// register pair is source
-void db80::rgx(uint8_t opcode) {
-	reg16 = getRegisterPair((opcode >> 4) & 0x03)
+// register pair is destination
+void db80::regp(uint8_t opcode) {
+	reg16 = getRegisterPair((opcode >> 4) & 0x03);
+}
+
+void db80::hldrp(uint8_t opcode) {
+	reg16 = getRegisterPair(HL_SEL);
+	op16 = getRegisterPairValue((opcode >> 4) & 0x03);
 }
 
 void db80::imm(uint8_t opcode) {
 	op8 = memoryRead(pc++);
 }
 
+void db80::immrd(uint8_t opcode) {
+	op8 = memoryRead(pc++);
+	reg8 = getRegister((opcode >> 3) & 0x07);
+}
+
 void db80::imx(uint8_t opcode) {
 	op16 = (memoryRead(pc++) | memoryRead(pc++) << 8);
 }
 
-void db80::abs(uint8_t opcode) {
-	addr_abs = (memoryRead(pc++) | memoryRead(pc++) << 8);
+void db80::imxrpd(uint8_t opcode) {
+	op16 = (memoryRead(pc++) | memoryRead(pc++) << 8);
+	reg16 = getRegisterPair((opcode >> 4) & 0x03);
 }
 
-void db80::indreg(uint8_t opcode) {
-	switch (opcode) {
-	case 0x02:
-		addr_abs = bc.pair;
-		op8 = af.a;
-		break;
-	case 0x12:
-		addr_abs = de.pair;
-		op8 = af.a;
-		break;
-	case 0x22:
-		addr_abs = (memoryRead(pc++) | memoryRead(pc++) << 8);
-		op16 = hl.pair;
-		break;
-	case 0x32:
-		addr_abs = (memoryRead(pc++) | memoryRead(pc++) << 8);
-		op8 = af.a;
-		break;
-	}
+void db80::indrpa(uint8_t opcode) {
+	op8 = af.acc;
+	reg16 = getRegisterPair((opcode >> 4) & 0x03);
+	addr_abs = *reg16;
+}
+
+void db80::indrp(uint8_t opcode) {
+	reg8 = getRegister(ACC_SEL);
+	addr_abs = getRegisterPairValue((opcode >> 4) & 0x03);
+	op8 = memoryRead(addr_abs);
+}
+
+void db80::abs(uint8_t opcode) {
+	addr_abs = (memoryRead(pc++) | memoryRead(pc++) << 8);
 }
 
 void db80::zpg(uint8_t opcode) {
@@ -84,9 +126,20 @@ void db80::zpg(uint8_t opcode) {
 	addr_abs = (uint16_t)(opcode & 0x38);
 }
 
-
+///////////////////////////////////////////////////////
 // instructions
 uint8_t db80::nop(uint8_t op){
+	return 0;
+}
+
+// p 587 Ramesh Goankar
+// p 203 Rodnay Zaks
+uint8_t db80::addrp(uint8_t op) {
+	*reg16 += op16;
+	setFlag(N, 0);
+	// TODO verify this Carry flag
+	setFlag(C, (*reg16 & 0x8000) != (op16 & 0x8000));
+	setFlag(H, (*reg16 & 0x0800) != (op16 & 0x0800));
 	return 0;
 }
 
@@ -94,23 +147,33 @@ uint8_t db80::decr(uint8_t op) {
 	// 00rrr101 - decrement register
 	// TODO status flags
 	(*reg8)--;
-	af.flags.z = (*reg8 == 0) ? 1 : 0;
-	af.flags.pv = (*reg8 == 255) ? 1 : 0;
-	af.flags.s = (*reg8 & 0x80) ? 1 : 0;
+	setFlag(Z, (*reg8 == 0));
+	setFlag(PV, (*reg8 == 0xFF));
+	setFlag(S, (*reg8 & 0x80));
 	return 0;
 }
+
+uint8_t db80::decrp(uint8_t op) {
+	(*reg16)--;
+	return 0;
+}
+
+uint8_t db80::exaf(uint8_t op) {
+	op16 = afp.pair;
+	afp.pair = af.pair;
+	af.pair = op16;
+	return 0;
+}
+
 
 uint8_t db80::incr(uint8_t op) {
 	// 00rrr100 - increment register
 	// TODO status flags
 	(*reg8)++;
-	af.flags.z = (*reg8 == 0 ) ? 1 : 0;
-	af.flags.pv = (*reg8 == 0) ? 1 : 0;
-	af.flags.s = (*reg8 & 0x80) ? 1 : 0;
+	setFlag(Z | PV, (*reg8 == 0));
+	setFlag(S, (*reg8 & 0x80));
 	return 0;
 }
-
-
 
 uint8_t db80::incrp(uint8_t op) {
 	// 00rr0011 - increment register pair rr
@@ -118,71 +181,33 @@ uint8_t db80::incrp(uint8_t op) {
 	return 0;
 }
 
-uint8_t db80::ldmb(uint8_t op) {
+uint8_t db80::ldm(uint8_t op) {
 	memoryWrite(addr_abs, op8);
 	return 0;
 }
 
 uint8_t db80::ldr(uint8_t op) {
 	// 00rrr110 - Load register rrr with 8 bit immediate
-	if ((op & 0b11000111) == 0b00000110) {
-		switch ((op >> 3) & 0x07) {
-		case 0:
-			bc.b = op8; break;
-		case 1:
-			bc.c = op8; break;
-		case 2:
-			de.d = op8; break;
-		case 3:
-			de.e = op8; break;
-		case 4:
-			hl.h = op8; break;
-		case 5:
-			hl.l = op8; break;
-		case 7:
-			af.a = op8; break;
-		default: break;
-		}
-	}
 	// 01dddrrr load register ddd with register rrr
-	else if ((op & 0b11000000) == 0b01000000) {
-		switch ((op >> 3) & 0x07) {
-		case 0:
-			bc.b = op8; break;
-		case 1:
-			bc.c = op8; break;
-		case 2:
-			de.d = op8; break;
-		case 3:
-			de.e = op8; break;
-		case 4:
-			hl.h = op8; break;
-		case 5:
-			hl.l = op8; break;
-		case 7:
-			af.a = op8; break;
-		default: break;
-		}
-	}
+	*reg8 = op8;
 	return 0;
 }
 
 uint8_t db80::ldrp(uint8_t op) {
 	// 00rr0001 - load register pair rr
-
-	switch ((op >> 4) & 0x03) {
-	case 0:
-		bc.pair = op16; break;
-	case 1:
-		de.pair = op16; break;
-	case 2:
-		hl.pair = op16; break;
-	case 3:
-		sp = op16; break;
-	default: break;
-	}
+	*reg16 = op16;
+	return 0;
 }
 
+uint8_t db80::rlca(uint8_t op) {
+	uint8_t carry = (af.acc & 0x80) ? 1 : 0;
+	setFlag(C, carry);
+	setFlag(H | N, 0);
+	af.acc = (af.acc << 1) | carry;
+	return 0;
+}
+
+///////////////////////////////////////////////////////
 // bus operations
 uint8_t db80::memoryRead(uint16_t address)
 {
@@ -219,14 +244,14 @@ uint8_t* db80::getRegister(uint8_t r) {
 	case 5:
 		return &hl.l;
 	case 7:
-		return &af.a;
+		return &af.acc;
 	default: break;
 	}
 	return 0;
 }
 
-uint16_t* db80::getRegisterPair(uint8_t rr) {
-	switch (rr) {
+uint16_t* db80::getRegisterPair(uint8_t rp) {
+	switch (rp) {
 	case 0:
 		return &bc.pair;
 	case 1:
@@ -235,6 +260,21 @@ uint16_t* db80::getRegisterPair(uint8_t rr) {
 		return &hl.pair;
 	case 3:
 		return &sp;
+	default: break;
+	}
+	return 0;
+}
+
+uint16_t db80::getRegisterPairValue(uint8_t rp) {
+	switch (rp) {
+	case 0:
+		return bc.pair;
+	case 1:
+		return de.pair;
+	case 2:
+		return hl.pair;
+	case 3:
+		return sp;
 	default: break;
 	}
 	return 0;
