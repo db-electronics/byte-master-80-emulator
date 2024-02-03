@@ -5,7 +5,18 @@ ByteMaster80::ByteMaster80()
 	// initialize RAM to garbage
 	for (auto& i : *internalMemory) i = (uint8_t)rand();
 
-	z80.connectBus(this);
+	(*internalMemory)[0] = 0; // NOP
+	(*internalMemory)[1] = 0x01; // LD BC,nn
+	(*internalMemory)[2] = 0x12; // n
+	(*internalMemory)[3] = 0x34; // n
+	(*internalMemory)[4] = 0x02; // LD (BC), a
+	(*internalMemory)[5] = 0x03; // INC BC
+	(*internalMemory)[6] = 0x04; // INC b
+	(*internalMemory)[7] = 0x05; // DEC b
+	(*internalMemory)[8] = 0x06; // LD B, n
+	(*internalMemory)[9] = 0xAA; // n
+
+
 	reset();
 }
 
@@ -15,11 +26,40 @@ void ByteMaster80::reset(void) {
 		bm.bankSelect[i] = 0;
 	}
 	bm.memorySourceSelect.byte = 0;
+
 }
 
 ByteMaster80::~ByteMaster80()
 {
 	delete internalMemory;
+}
+
+uint32_t ByteMaster80::tick(uint32_t cycles) {
+	while (cycles--) {
+
+		z80.tick(1);
+		
+		switch (z80.CtrlPins) {
+		case(db80::PINS::MREQ | db80::PINS::RD | db80::PINS::M1):
+		case(db80::PINS::MREQ | db80::PINS::RD): // Memory Read
+			// slot 0 always points to internal memory
+			// map to the proper page
+			if (z80.AddrPins >= 0x0000 && z80.AddrPins <= 0x3FFF) {
+				addressAbsolute = (bm.bankSelect[0] << 14) | (z80.AddrPins & 0x3FFF);
+				z80.DataPins = (*internalMemory)[addressAbsolute];
+			}
+			break;
+		case (db80::PINS::MREQ | db80::PINS::WR):
+			if (z80.AddrPins >= 0x0000 && z80.AddrPins <= 0x3FFF) {
+				addressAbsolute = (bm.bankSelect[0] << 14) | (z80.AddrPins & 0x3FFF);
+				(*internalMemory)[addressAbsolute] = z80.DataPins;
+			}
+			break;
+		default:
+			break;
+		}
+	}
+	return 0;
 }
 
 uint8_t ByteMaster80::memoryRead(uint16_t address)

@@ -9,8 +9,14 @@ db80::db80() {
 	z80.state = Z_RESET;
 
 	z80.r = 0;
+	z80.i = 0;
+	z80.pc = 0;
 	z80.ir = 0;
 	z80.tState = 0;
+}
+
+db80::~db80() {
+
 }
 
 uint32_t db80::tick(uint32_t cycles) {
@@ -20,7 +26,7 @@ uint32_t db80::tick(uint32_t cycles) {
 		CtrlPins = 0;
 		if (z80.tState > 4) {
 			z80.state = Z_OPCODE_FETCH;
-			z80.tState = 1;
+			z80.tState = 0;
 		}
 		break;
 	case Z_OPCODE_FETCH:
@@ -31,11 +37,12 @@ uint32_t db80::tick(uint32_t cycles) {
 			break;
 		case 2:
 			z80.ir = DataPins;
+			CtrlPins &= ~(MREQ | RD | M1); // shorten this cycle to prevent the bus from writing twice
 			z80.r++;
 			break;
 		case 3:
 			// totally ignoring refresh
-			CtrlPins &= ~(MREQ | RD | M1);
+			
 			break;
 		case 4:
 			opFetch();
@@ -56,13 +63,13 @@ uint32_t db80::tick(uint32_t cycles) {
 		switch (z80.tState) {
 		case 1:
 			AddrPins = z80.pc++;
+			CtrlPins |= (MREQ | RD);
 			break;
 		case 2:
-			CtrlPins |= (MREQ | RD);
 			*z80.regDest = DataPins;
+			CtrlPins &= ~(MREQ | RD);
 			break;
 		case 3:
-			CtrlPins &= ~(MREQ | RD );
 			z80.tState = 0;
 			opMemRead();
 			break;
@@ -72,25 +79,27 @@ uint32_t db80::tick(uint32_t cycles) {
 		switch (z80.tState) {
 		case 1:
 			AddrPins = z80.pc++;
+			CtrlPins |= (MREQ | RD);
 			break;
 		case 2:
-			CtrlPins |= (MREQ | RD);
 			z80.wz.z = DataPins;
+			CtrlPins &= ~(MREQ | RD);
 			break;
 		case 3:
-			CtrlPins &= ~(MREQ | RD);
+			
 			break;
 		case 4:
 			AddrPins = z80.pc++;
+			CtrlPins |= (MREQ | RD);
 			break;
 		case 5:
-			CtrlPins |= (MREQ | RD);
 			z80.wz.w = DataPins;
+			CtrlPins &= ~(MREQ | RD);
 			break;
 		case 6:
-			CtrlPins &= ~(MREQ | RD);
 			*z80.regPairDest = z80.wz.pair;
 			z80.tState = 0;
+			z80.state = Z_OPCODE_FETCH;
 			break;
 		}
 		break;
@@ -117,6 +126,7 @@ uint32_t db80::tick(uint32_t cycles) {
 }
 
 void db80::opFetch(void) {
+	z80.tState = 0;
 	switch (z80.ir) {
 	case 0x00: // NOP
 		z80.state = Z_OPCODE_FETCH;
@@ -151,6 +161,11 @@ void db80::opFetch(void) {
 		return;
 	}
 }
+
+void db80::opMemRead() {
+
+}
+
 
 inline void db80::decReg(uint8_t& reg) {
 	reg--;

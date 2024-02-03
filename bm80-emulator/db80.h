@@ -4,8 +4,6 @@
 #include <string>
 #include <vector>
 
-// forward declare system
-class ByteMaster80;
 
 class db80
 {
@@ -28,14 +26,11 @@ public:
 	};
 
 	uint32_t tick(uint32_t cycles);
-	void connectBus(ByteMaster80* n) { bus = n; }
-
 
 private:
 
 	void opFetch();
 	void opMemRead();
-	void opMemReadExt();
 
 	void decReg(uint8_t& reg);
 	void incReg(uint8_t& reg);
@@ -81,43 +76,34 @@ private:
 		}af, afp;
 		union _BC {
 			struct {
-				uint8_t b;
 				uint8_t c;
+				uint8_t b;
 			};
 			uint16_t pair;
 		}bc, bcp;
 		union _DE {
 			struct {
-				uint8_t d;
 				uint8_t e;
+				uint8_t d;
 			};
 			uint16_t pair;
 		}de, dep;
 		union _HL {
 			struct {
-				uint8_t h;
 				uint8_t l;
+				uint8_t h;
 			};
 			uint16_t pair;
 		}hl, hlp;
 		union _WZ {
 			struct {
-				uint8_t w;
 				uint8_t z;
+				uint8_t w;
 			};
 			uint16_t pair;
 		}wz;
 	}z80;
 
-	const uint8_t BC_SEL = 0;
-	const uint8_t DE_SEL = 1;
-	const uint8_t HL_SEL = 2;
-	const uint8_t SP_SEL = 3;
-
-	const uint8_t ACC_SEL = 7;
-
-	ByteMaster80* bus = nullptr;
-	
 
 
 	// thanks to https://github.com/redcode/Z80/blob/master/sources/Z80.c for parity lookup

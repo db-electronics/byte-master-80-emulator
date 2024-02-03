@@ -18,6 +18,8 @@ public:
 	// devices connected to system
 	db80 z80;
 
+	uint32_t tick(uint32_t cycles);
+
 	uint8_t memoryRead(uint16_t address);
 	void memoryWrite(uint16_t address, uint8_t data);
 	uint8_t ioRead(uint8_t address);

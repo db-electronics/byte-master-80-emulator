@@ -9,13 +9,15 @@ public:
 	{
 		sAppName = "Byte Master 80";
 
-		ByteMaster80 system;
 	}
+
+	ByteMaster80 bm80;
 
 public:
 	bool OnUserCreate() override
 	{
 		// Called once at the start, so create things here
+		bm80.reset();
 		return true;
 	}
 
@@ -25,6 +27,11 @@ public:
 		//for (int x = 0; x < ScreenWidth(); x++)
 		//	for (int y = 0; y < ScreenHeight(); y++)
 		//		Draw(x, y, olc::Pixel(rand() % 255, rand() % 255, rand() % 255));
+
+		for (int i = 0; i < 100; i++) {
+			bm80.tick(100);
+		}
+
 		return true;
 	}
 };
