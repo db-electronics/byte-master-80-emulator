@@ -24,7 +24,8 @@ db80::~db80() {
 }
 
 void db80::trace() {
-	printf("c %d : t %d : ir 0x%.2X : pc 0x%.4X \n", z80.ticks, z80.tState, z80.ir, z80.pc);
+	printf("c %d : t %d : pc 0x%.4X : ir 0x%.2X %-10s : addr 0x%.4X : data 0x%.2X : a 0x%.2X : f 0x%.2X : bc 0x%.4X : de 0x%.4X : hl 0x%.4X \n", 
+		z80.ticks, z80.tState, z80.pc, z80.ir, getInstruction(z80.ir), AddrPins, DataPins, z80.af.acc, z80.af.flags, z80.bc.pair, z80.de.pair, z80.hl.pair);
 }
 
 bool db80::tick(uint32_t cycles) {
@@ -131,11 +132,11 @@ bool db80::tick(uint32_t cycles) {
 	case Z_MEMORY_WRITE:
 		switch (z80.tState) {
 		case 1:
-			AddrPins = z80.addr;
+			AddrPins = z80.addrBuffer.pair;
 			break;
 		case 2:
 			CtrlPins |= (MREQ | WR);
-			DataPins = z80.data;
+			DataPins = z80.dataBuffer;
 			break;
 		case 3:
 			CtrlPins &= ~(MREQ | WR);
@@ -144,15 +145,33 @@ bool db80::tick(uint32_t cycles) {
 			break;
 		}
 		break;
+	case Z_IO_WRITE:
+		switch (z80.tState) {
+		case 1:
+			AddrPins = z80.addrBuffer.pair;
+			break;
+		case 2:
+			CtrlPins |= (IORQ | WR);
+			DataPins = z80.dataBuffer;
+			break;
+		case 3:
+			CtrlPins &= ~(IORQ | WR);
+			break;
+		case 4:
+			z80.tState = 0;
+			z80.state = Z_OPCODE_FETCH;
+			break;
+		}
+		break;
+		break;
 	default:
 		break;
 	}
 
-	trace();
 	return (z80.state == Z_OPCODE_FETCH) && (z80.tState == 0); // true if this cycle resulted in the end of an instruction
 }
 
-void db80::opFetch(void) {
+inline void db80::opFetch(void) {
 	z80.tState = 0;
 	switch (z80.ir) {
 	case 0x00: // NOP
@@ -163,8 +182,8 @@ void db80::opFetch(void) {
 		z80.state = Z_MEMORY_READ_EXT;
 		return;
 	case 0x02: // LD (BC),a
-		z80.data = z80.af.acc;
-		z80.addr = z80.bc.pair;
+		z80.dataBuffer = z80.af.acc;
+		z80.addrBuffer.pair = z80.bc.pair;
 		z80.state = Z_MEMORY_WRITE;
 		return;
 	case 0x03: // INC BC
@@ -183,11 +202,20 @@ void db80::opFetch(void) {
 		z80.regDest = &z80.bc.b;
 		z80.state = Z_MEMORY_READ;
 		return;
-	case 0x18: // JR d	- 12 (4, 3, 5)
+
+	case 0x18: // JR d	- 12 (4,3,5)
 		z80.regDest = &z80.tmp;
 		z80.state = Z_MEMORY_READ;
 		z80.nextState = Z_JR;
 		return; // 8 cycles left
+
+	case 0xD3: // OUT (n), a (4,3,4)
+		z80.addrBuffer.h = z80.af.acc; // Accumulator on A15..A8
+		z80.dataBuffer = z80.af.acc;
+		z80.regDest = &z80.addrBuffer.l;
+		z80.state = Z_MEMORY_READ;
+		z80.nextState = Z_IO_WRITE;
+		return;
 	default:
 		z80.state = Z_OPCODE_FETCH;
 		return;
@@ -206,15 +234,30 @@ inline void db80::incReg(uint8_t& reg) {
 	// TODO SET FLAGS
 }
 
-std::string getInstruction(uint8_t op) {
+const char* db80::getInstruction(uint8_t op) {
 	switch (op) {
 	case 0x00:
-		return "NOP";
+		return "nop";
 	case 0x01:
-		return "LD BC,nn";
+		return "ld bc,nn";
 	case 0x02:
-		return "LD (BC),a";
+		return "ld (bc),a";
 	case 0x03:
-		return "INC BC";
+		return "inc bc";
+	case 0x04:
+		return "inc b";
+	case 0x05:
+		return "dec b";
+	case 0x06:
+		return "ld b,n";
+
+	case 0x18:
+		return "jr d";
+
+	case 0xD3:
+		return "out (n),a";
+
+	default:
+		return "n/a";
 	}
 }

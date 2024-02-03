@@ -20,9 +20,6 @@ public:
 
 	uint32_t tick(uint32_t cycles);
 
-	uint8_t ioRead(uint8_t address);
-	void ioWrite(uint8_t address, uint8_t data);
-
 private:
 	union _mss {
 		uint8_t byte;
@@ -42,7 +39,7 @@ private:
 
 	_byteMasterRegisters bm;
 
-	uint32_t addressAbsolute;
+	uint32_t addressBus;
 
 	// internal memory, first 512KB is ROM, afterwards up to 4MB filled with RAM
 	std::array<uint8_t, INTERNAL_MEMORY_SIZE_KB * 1024>* internalMemory = new std::array<uint8_t, INTERNAL_MEMORY_SIZE_KB * 1024>();

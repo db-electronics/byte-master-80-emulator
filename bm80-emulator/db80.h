@@ -14,7 +14,7 @@ public:
 	// Exposed Pins
 	uint16_t CtrlPins;
 	uint16_t AddrPins;
-	uint16_t DataPins;
+	uint8_t DataPins;
 
 	enum PINS {
 		MREQ = (1 << 0),
@@ -25,11 +25,16 @@ public:
 		WAIT = (1 << 5)
 	};
 
+	/// <summary>
+	/// Advanced the Z80 state by one clock period
+	/// </summary>
+	/// <param name="cycles"></param>
+	/// <returns>True when an instruction has completed</returns>
 	bool tick(uint32_t cycles);
 
 	void trace();
 
-	std::string getInstruction(uint8_t op);
+	const char* getInstruction(uint8_t op);
 
 private:
 
@@ -70,8 +75,8 @@ private:
 		uint32_t ticks;
 		uint8_t* regDest;
 		uint16_t* regPairDest;
-		uint16_t sp, pc, ix, iy, addr;
-		uint8_t i, r, tmp, ir, iff, iff2, data;
+		uint16_t sp, pc, ix, iy;
+		uint8_t i, r, tmp, ir, iff, iff2, dataBuffer;
 		uint8_t tState;
 		union _AF {
 			struct {
@@ -100,7 +105,7 @@ private:
 				uint8_t h;
 			};
 			uint16_t pair;
-		}hl, hlp;
+		}hl, hlp, addrBuffer;
 		union _WZ {
 			struct {
 				uint8_t z;
