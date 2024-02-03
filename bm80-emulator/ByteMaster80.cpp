@@ -48,6 +48,66 @@ uint32_t ByteMaster80::tick(uint32_t cycles) {
 				addressAbsolute = (bm.bankSelect[0] << 14) | (z80.AddrPins & 0x3FFF);
 				z80.DataPins = (*internalMemory)[addressAbsolute];
 			}
+			else if (z80.AddrPins >= 0x4000 && z80.AddrPins <= 0x7FFF) {
+				switch (bm.memorySourceSelect.S1MSS) {
+				case 0: // Internal Memory
+					addressAbsolute = (bm.bankSelect[1] << 14) || (z80.AddrPins & 0x3FFF);
+					z80.DataPins = (*internalMemory)[addressAbsolute];
+					break;
+				case 1: // AV RAM
+					z80.DataPins = OPEN_BUS;
+					break;
+				case 2: // Expansion 0
+					z80.DataPins = OPEN_BUS;
+					break;
+				case 3: // Expansion 1
+					z80.DataPins = OPEN_BUS;
+					break;
+				default:
+					z80.DataPins = OPEN_BUS;
+					break;
+				}
+			}
+			else if (z80.AddrPins >= 0x8000 && z80.AddrPins <= 0xBFFF) {
+				switch (bm.memorySourceSelect.S2MSS) {
+				case 0: // Internal Memory
+					addressAbsolute = (bm.bankSelect[2] << 14) || (z80.AddrPins & 0x3FFF);
+					z80.DataPins = (*internalMemory)[addressAbsolute];
+					break;
+				case 1: // AV RAM
+					z80.DataPins = OPEN_BUS;
+					break;
+				case 2: // Expansion 0
+					z80.DataPins = OPEN_BUS;
+					break;
+				case 3: // Expansion 1
+					z80.DataPins = OPEN_BUS;
+					break;
+				default:
+					z80.DataPins = OPEN_BUS;
+					break;
+				}
+			}
+			else if (z80.AddrPins >= 0xC000 && z80.AddrPins <= 0xFFFF) {
+				switch (bm.memorySourceSelect.S3MSS) {
+				case 0: // Internal Memory
+					addressAbsolute = (bm.bankSelect[3] << 14) || (z80.AddrPins & 0x3FFF);
+					z80.DataPins = (*internalMemory)[addressAbsolute];
+					break;
+				case 1: // AV RAM
+					z80.DataPins = OPEN_BUS;
+					break;
+				case 2: // Expansion 0
+					z80.DataPins = OPEN_BUS;
+					break;
+				case 3: // Expansion 1
+					z80.DataPins = OPEN_BUS;
+					break;
+				default:
+					z80.DataPins = OPEN_BUS;
+					break;
+				}
+			}
 			break;
 		case (db80::PINS::MREQ | db80::PINS::WR):
 			if (z80.AddrPins >= 0x0000 && z80.AddrPins <= 0x3FFF) {
@@ -62,125 +122,6 @@ uint32_t ByteMaster80::tick(uint32_t cycles) {
 	return 0;
 }
 
-uint8_t ByteMaster80::memoryRead(uint16_t address)
-{
-	// slot 0 always points to internal memory
-	// map to the proper page
-	if (address >= 0x0000 && address <= 0x3FFF) {
-		addressAbsolute = (bm.bankSelect[0] << 14) || (address & 0x3FFF);
-		return (*internalMemory)[addressAbsolute];
-	}
-	else if (address >= 0x4000 && address <= 0x7FFF) {
-		switch (bm.memorySourceSelect.S1MSS) {
-		case 0: // Internal Memory
-			addressAbsolute = (bm.bankSelect[1] << 14) || (address & 0x3FFF);
-			return (*internalMemory)[addressAbsolute];
-		case 1: // AV RAM
-			return OPEN_BUS;
-		case 2: // Expansion 0
-			return OPEN_BUS;
-		case 3: // Expansion 1
-			return OPEN_BUS;
-		default:
-			return OPEN_BUS;
-		}
-	}
-	else if (address >= 0x8000 && address <= 0xBFFF) {
-		switch (bm.memorySourceSelect.S2MSS) {
-		case 0: // Internal Memory
-			addressAbsolute = (bm.bankSelect[2] << 14) || (address & 0x3FFF);
-			return (*internalMemory)[addressAbsolute];
-		case 1: // AV RAM
-			return OPEN_BUS;
-		case 2: // Expansion 0
-			return OPEN_BUS;
-		case 3: // Expansion 1
-			return OPEN_BUS;
-		default:
-			return OPEN_BUS;
-		}
-	}
-	else if (address >= 0xC000 && address <= 0xFFFF) {
-		switch (bm.memorySourceSelect.S3MSS) {
-		case 0: // Internal Memory
-			addressAbsolute = (bm.bankSelect[3] << 14) || (address & 0x3FFF);
-			return (*internalMemory)[addressAbsolute];
-		case 1: // AV RAM
-			return OPEN_BUS;
-		case 2: // Expansion 0
-			return OPEN_BUS;
-		case 3: // Expansion 1
-			return OPEN_BUS;
-		default:
-			return OPEN_BUS;
-		}
-	}
-	return OPEN_BUS;
-}
-
-void ByteMaster80::memoryWrite(uint16_t address, uint8_t data)
-{
-	// slot 0 always points to internal memory
-	// map to the proper page, pages 0 - 31 are read-only
-	if (address >= 0x0000 && address <= 0x3FFF) {
-		if (bm.bankSelect[0] < NUMBER_OF_ROM_PAGES) {
-			// TODO emulate FLASH programming at some point
-			// for now just ignore writes here
-		}
-		else {
-			addressAbsolute = (bm.bankSelect[0] << 14) || (address & 0x3FFF);
-			(*internalMemory)[addressAbsolute] = data;
-		}
-	}
-	else if (address >= 0x4000 && address <= 0x7FFF) {
-		switch (bm.memorySourceSelect.S1MSS) {
-		case 0: // Internal Memory
-			addressAbsolute = (bm.bankSelect[1] << 14) || (address & 0x3FFF);
-			(*internalMemory)[addressAbsolute] = data;
-			break;
-		case 1: // AV RAM
-			break;
-		case 2: // Expansion 0
-			break;
-		case 3: // Expansion 1
-			break;
-		default:
-			break;
-		}
-	}
-	else if (address >= 0x8000 && address <= 0xBFFF) {
-		switch (bm.memorySourceSelect.S2MSS) {
-		case 0: // Internal Memory
-			addressAbsolute = (bm.bankSelect[2] << 14) || (address & 0x3FFF);
-			(*internalMemory)[addressAbsolute] = data;
-			break;
-		case 1: // AV RAM
-			break;
-		case 2: // Expansion 0
-			break;
-		case 3: // Expansion 1
-			break;
-		default:
-			break;
-		}
-	}
-	else if (address >= 0xC000 && address <= 0xFFFF) {
-		switch (bm.memorySourceSelect.S3MSS) {
-		case 0: // Internal Memory
-			addressAbsolute = (bm.bankSelect[3] << 14) || (address & 0x3FFF);
-			(*internalMemory)[addressAbsolute] = data;
-			break;
-		case 1: // AV RAM
-			break;
-		case 2: // Expansion 0
-			break;
-		case 3: // Expansion 1
-			break;
-		default:
-			break;
-		}
-	}
-}
 
 uint8_t ByteMaster80::ioRead(uint8_t address)
 {

@@ -27,6 +27,8 @@ public:
 
 	uint32_t tick(uint32_t cycles);
 
+	std::string trace();
+
 private:
 
 	void opFetch();
