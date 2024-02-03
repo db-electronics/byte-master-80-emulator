@@ -25,14 +25,15 @@ public:
 		WAIT = (1 << 5)
 	};
 
-	uint32_t tick(uint32_t cycles);
+	bool tick(uint32_t cycles);
 
-	std::string trace();
+	void trace();
+
+	std::string getInstruction(uint8_t op);
 
 private:
 
 	void opFetch();
-	void opMemRead();
 
 	void decReg(uint8_t& reg);
 	void incReg(uint8_t& reg);
@@ -54,6 +55,7 @@ private:
 		Z_MEMORY_READ_EXT,
 		Z_MEMORY_READ_ADDR,
 		Z_MEMORY_WRITE,
+		Z_JR,
 		Z_IO_READ,
 		Z_IO_WRITE,
 		Z_INT_ACK,
@@ -64,6 +66,8 @@ private:
 	// z80 registers
 	struct Z80REGISTERS {
 		Z80MACHINECYCLE state;
+		Z80MACHINECYCLE nextState;
+		uint32_t ticks;
 		uint8_t* regDest;
 		uint16_t* regPairDest;
 		uint16_t sp, pc, ix, iy, addr;

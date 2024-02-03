@@ -1,4 +1,5 @@
 #include "ByteMaster80.h"
+#include <iostream>
 
 ByteMaster80::ByteMaster80() 
 {
@@ -15,7 +16,8 @@ ByteMaster80::ByteMaster80()
 	(*internalMemory)[7] = 0x05; // DEC b
 	(*internalMemory)[8] = 0x06; // LD B, n
 	(*internalMemory)[9] = 0xAA; // n
-
+	(*internalMemory)[10] = 0x18; // JR d
+	(*internalMemory)[11] = -12; // d
 
 	reset();
 }
@@ -37,7 +39,9 @@ ByteMaster80::~ByteMaster80()
 uint32_t ByteMaster80::tick(uint32_t cycles) {
 	while (cycles--) {
 
-		z80.tick(1);
+		if (z80.tick(1)) {
+			// indicates completion of instruction
+		}
 		
 		switch (z80.CtrlPins) {
 		case(db80::PINS::MREQ | db80::PINS::RD | db80::PINS::M1):
