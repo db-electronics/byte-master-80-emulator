@@ -49,12 +49,12 @@ uint32_t ByteMaster80::tick(uint32_t cycles) {
 		instCycles++;
 		if (z80.tick(1)) {
 			// indicates completion of instruction
-			z80.trace();
 			printf("instruction took %d cycles\n", instCycles);
 			instCycles = 0;
 		}
-		
-		switch (z80.CtrlPins) {
+		z80.trace();
+
+		switch (z80.CtrlPins.word) {
 		case(db80::PINS::MREQ | db80::PINS::RD | db80::PINS::M1): // Opcode fetch
 		case(db80::PINS::MREQ | db80::PINS::RD): // Memory Read
 			// slot 0 always points to internal memory

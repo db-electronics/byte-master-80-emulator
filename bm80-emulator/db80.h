@@ -2,8 +2,6 @@
 
 #include <cstdint>
 #include <string>
-#include <vector>
-
 
 class db80
 {
@@ -12,21 +10,45 @@ public:
 	~db80();
 
 	// Exposed Pins
-	uint16_t CtrlPins;
+	//uint16_t CtrlPins;
 	uint16_t AddrPins;
 	uint8_t DataPins;
 
 	enum PINS {
-		MREQ = (1 << 0),
-		IORQ = (1 << 1),
-		RD   = (1 << 2),
-		WR   = (1 << 3),
-		M1   = (1 << 4),
-		WAIT = (1 << 5)
+		RST    = (1 << 0),
+		MREQ   = (1 << 1),
+		IORQ   = (1 << 2),
+		RD     = (1 << 3),
+		WR     = (1 << 4),
+		M1     = (1 << 5),
+		INT    = (1 << 6),
+		NMI    = (1 << 7),
+		BUSACK = (1 << 8),
+		BUSREQ = (1 << 9),
+		WAIT   = (1 << 10),
+		RFSH   = (1 << 11)
 	};
 
+	union _CTRL {
+		struct {
+			unsigned RST    : 1;
+			unsigned MREQ   : 1;
+			unsigned IORQ   : 1;
+			unsigned RD     : 1;
+			unsigned WR     : 1;
+			unsigned M1     : 1;
+			unsigned INT    : 1;
+			unsigned NMI    : 1;
+			unsigned BUSACK : 1;
+			unsigned BUSREQ : 1;
+			unsigned WAIT   : 1;
+			unsigned RSFH   : 1;
+		};
+		uint16_t word;
+	}CtrlPins;
+
 	/// <summary>
-	/// Advanced the Z80 state by one clock period
+	/// Advance the Z80 state by one clock period
 	/// </summary>
 	/// <param name="cycles"></param>
 	/// <returns>True when an instruction has completed</returns>
@@ -42,14 +64,15 @@ private:
 
 	void decReg(uint8_t& reg);
 	void incReg(uint8_t& reg);
+	void rlca();
 
 	enum FLAGS {
-		C = (1 << 0), // carry
-		N = (1 << 1), // substract
+		C  = (1 << 0), // carry
+		N  = (1 << 1), // substract
 		PV = (1 << 2), // parity/overflow
-		H = (1 << 4), // half-carry
-		Z = (1 << 6), // zero
-		S = (1 << 7)  // sign
+		H  = (1 << 4), // half-carry
+		Z  = (1 << 6), // zero
+		S  = (1 << 7)  // sign
 	};
 
 	enum Z80MACHINECYCLE {
@@ -78,13 +101,24 @@ private:
 		uint16_t sp, pc, ix, iy;
 		uint8_t i, r, tmp, ir, iff, iff2, dataBuffer;
 		uint8_t tState;
-		union _AF {
+
+		uint8_t a, ap;
+
+		union _FLAGS{
 			struct {
-				uint8_t acc;
-				uint8_t flags;
+				unsigned C  : 1;
+				unsigned N  : 1;
+				unsigned PV : 1;
+				unsigned    : 1;
+				unsigned H  : 1;
+				unsigned    : 1;
+				unsigned Z  : 1;
+				unsigned S  : 1;
 			};
-			uint16_t pair;
-		}af, afp;
+			uint8_t byte;
+		}flags, flagsp;
+
+
 		union _BC {
 			struct {
 				uint8_t c;
