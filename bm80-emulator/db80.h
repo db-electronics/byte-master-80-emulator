@@ -60,13 +60,14 @@ public:
 
 private:
 
-	void opFetch();
+	const uint8_t RST_STATE_LENGTH = 3;
 
+	void operate();
 	void decReg(uint8_t& reg);
 	void incReg(uint8_t& reg);
 	void rlca();
 
-	enum FLAGS {
+	enum Z_FLAGS {
 		C  = (1 << 0), // carry
 		N  = (1 << 1), // substract
 		PV = (1 << 2), // parity/overflow
@@ -75,7 +76,7 @@ private:
 		S  = (1 << 7)  // sign
 	};
 
-	enum Z80MACHINECYCLE {
+	enum Z_MACHINE_CYCLE {
 		Z_RESET,
 		Z_OPCODE_FETCH,
 		Z_M1_EXT,
@@ -91,15 +92,22 @@ private:
 		Z_BUS_ACK
 	};
 
+	enum Z_INTERRUPT_MODE {
+		Z_MODE_0,
+		Z_MODE_1,
+		Z_MODE_2
+	};
+
 	// z80 registers
-	struct Z80REGISTERS {
-		Z80MACHINECYCLE state;
-		Z80MACHINECYCLE nextState;
+	struct Z_REGISTERS {
+		Z_MACHINE_CYCLE state;
+		Z_MACHINE_CYCLE nextState;
+		Z_INTERRUPT_MODE intMode;
 		uint32_t ticks;
 		uint8_t* regDest;
 		uint16_t* regPairDest;
 		uint16_t sp, pc, ix, iy;
-		uint8_t i, r, tmp, ir, iff, iff2, dataBuffer;
+		uint8_t i, r, tmp, ir, iff1, iff2, rstCount, dataBuffer;
 		uint8_t tState;
 
 		uint8_t a, ap;
@@ -118,7 +126,6 @@ private:
 			uint8_t byte;
 		}flags, flagsp;
 
-
 		union _BC {
 			struct {
 				uint8_t c;
@@ -126,6 +133,7 @@ private:
 			};
 			uint16_t pair;
 		}bc, bcp;
+
 		union _DE {
 			struct {
 				uint8_t e;
@@ -133,6 +141,7 @@ private:
 			};
 			uint16_t pair;
 		}de, dep;
+
 		union _HL {
 			struct {
 				uint8_t l;
@@ -140,6 +149,7 @@ private:
 			};
 			uint16_t pair;
 		}hl, hlp, addrBuffer;
+
 		union _WZ {
 			struct {
 				uint8_t z;
@@ -147,9 +157,8 @@ private:
 			};
 			uint16_t pair;
 		}wz;
+
 	}z80;
-
-
 
 	// thanks to https://github.com/redcode/Z80/blob/master/sources/Z80.c for parity lookup
 	uint8_t parityLookup[256] = {

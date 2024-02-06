@@ -18,6 +18,7 @@ db80::db80() {
 
 	z80.ticks = 0;
 
+
 }
 
 db80::~db80() {
@@ -30,12 +31,26 @@ void db80::trace() {
 }
 
 bool db80::tick(uint32_t cycles) {
+	
 	z80.tState++;
 	z80.ticks++;
+	
+	if (CtrlPins.RST) {
+		z80.state = Z_RESET;
+	}
+
 	switch (z80.state) {
 	case Z_RESET:
 		CtrlPins.word = 0;
-		if (z80.tState > 4) {
+		z80.iff1 = 0;
+		z80.iff2 = 0;
+		z80.intMode = Z_MODE_0;
+		z80.pc = 0;
+		z80.i = 0;
+		z80.r = 0;
+		AddrPins = 0xFFFF;
+		DataPins = 0xFF;
+		if (z80.tState > RST_STATE_LENGTH) {
 			z80.state = Z_OPCODE_FETCH;
 			z80.tState = 0;
 		}
@@ -43,20 +58,22 @@ bool db80::tick(uint32_t cycles) {
 	case Z_OPCODE_FETCH:
 		switch (z80.tState) {
 		case 1:
-			CtrlPins.word = (MREQ | RD | M1);
+			CtrlPins.word |= (MREQ | RD | M1);
 			AddrPins = z80.pc++;
 			break;
 		case 2:
 			z80.ir = DataPins;
 			CtrlPins.word &= ~(MREQ | RD | M1); // shorten this cycle to prevent the bus from writing twice
-			z80.r++;
+			z80.r++; // this needs to only increment the last 7 bits
 			break;
 		case 3:
-			// totally ignoring refresh for now
+			CtrlPins.word |= (MREQ | RFSH);
+			AddrPins = (uint16_t)(z80.i << 8 | z80.r);
 			z80.nextState = Z_OPCODE_FETCH; // ensure this is default, instructions which need additional m cycles can change it
 			break;
 		case 4:
-			opFetch();
+			CtrlPins.word &= ~(MREQ | RFSH);
+			operate();
 			break;
 		}
 		break;
@@ -172,42 +189,51 @@ bool db80::tick(uint32_t cycles) {
 	return (z80.state == Z_OPCODE_FETCH) && (z80.tState == 0); // true if this cycle resulted in the end of an instruction
 }
 
-inline void db80::opFetch(void) {
+/// <summary>
+/// Operate based on instruction register contents.
+/// If more machine cycles are required, set the z80.state and optionally z80.nextState.
+/// </summary>
+/// <param name=""></param>
+inline void db80::operate(void) {
 	z80.tState = 0;
 	switch (z80.ir) {
 	case 0x00: // NOP
-		z80.state = Z_OPCODE_FETCH;
-		return;
+		break;
+
 	case 0x01: // LD BC,nn
 		z80.regPairDest = &z80.bc.pair;
 		z80.state = Z_MEMORY_READ_EXT;
 		return;
+
 	case 0x02: // LD (BC),a
 		z80.dataBuffer = z80.a;
 		z80.addrBuffer.pair = z80.bc.pair;
 		z80.state = Z_MEMORY_WRITE;
 		return;
+
 	case 0x03: // INC BC
 		z80.bc.pair++;	// I know this only happens later, but meh this is still externally cycle accurate
 		z80.state = Z_M1_EXT;
 		return;
+
 	case 0x04: // INC B
 		incReg(z80.bc.b);
-		z80.state = Z_OPCODE_FETCH;
-		return;
+		break;
+
 	case 0x05: // DEC B
 		decReg(z80.bc.b);
-		z80.state = Z_OPCODE_FETCH;
-		return;
+		break;
+
 	case 0x06: // LD B,n
 		z80.regDest = &z80.bc.b;
 		z80.state = Z_MEMORY_READ;
-		return;
+		return; // 3 cycles left
+
 	case 0x07: // rlca
 		rlca();
-		z80.state = Z_OPCODE_FETCH;
+		break;
 
-	case 0x18: // JR d	- 12 (4,3,5)
+	case 0x18: // JR d - 12 (4,3,5)
 		z80.regDest = &z80.tmp;
 		z80.state = Z_MEMORY_READ;
 		z80.nextState = Z_JR;
@@ -220,10 +246,32 @@ inline void db80::opFetch(void) {
 		z80.state = Z_MEMORY_READ;
 		z80.nextState = Z_IO_WRITE;
 		return;
+
+	case 0xF3: // DI (4)
+		z80.iff1 = 0;
+		z80.iff1 = 0;
+		break;
+
 	default:
-		z80.state = Z_OPCODE_FETCH;
+		break;
+	}
+
+	// was last cycle of instruction, check for interrupt
+	// NMI has higher priority
+	if (CtrlPins.NMI) {
+		z80.nextState = Z_NMI;
+		z80.iff2 = z80.iff1;
+		z80.iff1 = 0;
 		return;
 	}
+	// Maskable interrupt
+	else if (z80.iff1 && CtrlPins.INT) {
+		z80.nextState = Z_INT_ACK;
+		return;
+	}
+
+	z80.nextState = Z_OPCODE_FETCH;
+	return;
 }
 
 
@@ -274,7 +322,8 @@ const char* db80::getInstruction(uint8_t op) {
 
 	case 0xD3:
 		return "out (n),a";
-
+	case 0xF3:
+		return "di";
 	default:
 		return "n/a";
 	}
