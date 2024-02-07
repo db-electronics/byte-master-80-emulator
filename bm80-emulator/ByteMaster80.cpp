@@ -1,5 +1,4 @@
 #include "ByteMaster80.h"
-#include <iostream>
 
 ByteMaster80::ByteMaster80() 
 {
@@ -24,11 +23,12 @@ ByteMaster80::ByteMaster80()
 	//	(*internalMemory)[i] = testRom[i];
 	//}
 
-	std::ifstream ifs;
-	ifs.open("C:\\Git\\WLA-DX\\byte-master-80-utils\\Test ROM\\test.bin", std::ifstream::binary | std::ifstream::ate);
-	if (ifs.is_open()) {
-		//ifs.read(reinterpret_cast<char*>(internalMemory->data()), ifs.tellg());
-		ifs.read((char*)internalMemory, ifs.tellg());
+	std::ifstream file("C:\\Git\\WLA-DX\\byte-master-80-utils\\Test ROM\\test.bin", std::ios::binary);
+	//ifs.open("C:\\Git\\WLA-DX\\byte-master-80-utils\\Test ROM\\test.bin", std::ios::binary);
+	
+	if (file) {
+		systemMemory.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+		file.close();
 	}
 
 	reset();
@@ -46,7 +46,7 @@ void ByteMaster80::reset(void) {
 
 ByteMaster80::~ByteMaster80()
 {
-	delete internalMemory;
+	systemMemory.clear();
 }
 
 bool ByteMaster80::tick(uint32_t cycles) {
@@ -69,13 +69,13 @@ bool ByteMaster80::tick(uint32_t cycles) {
 			// map to the proper page
 			if (z80.AddrPins >= 0x0000 && z80.AddrPins <= 0x3FFF) {
 				addressBus = (bm.bankSelect[0] << 14) | (z80.AddrPins & 0x3FFF);
-				z80.DataPins = internalMemory[addressBus];
+				z80.DataPins = systemMemory[addressBus];
 			}
 			else if (z80.AddrPins >= 0x4000 && z80.AddrPins <= 0x7FFF) {
 				addressBus = (bm.bankSelect[1] << 14) || (z80.AddrPins & 0x3FFF);
 				switch (bm.memorySourceSelect.S1MSS) {
 				case 0: // Internal Memory
-					z80.DataPins = internalMemory[addressBus];
+					z80.DataPins = systemMemory[addressBus];
 					break;
 				case 1: // AV RAM
 					z80.DataPins = OPEN_BUS;
@@ -95,7 +95,7 @@ bool ByteMaster80::tick(uint32_t cycles) {
 				addressBus = (bm.bankSelect[2] << 14) || (z80.AddrPins & 0x3FFF);
 				switch (bm.memorySourceSelect.S2MSS) {
 				case 0: // Internal Memory
-					z80.DataPins = internalMemory[addressBus];
+					z80.DataPins = systemMemory[addressBus];
 					break;
 				case 1: // AV RAM
 					z80.DataPins = OPEN_BUS;
@@ -115,7 +115,7 @@ bool ByteMaster80::tick(uint32_t cycles) {
 				addressBus = (bm.bankSelect[3] << 14) || (z80.AddrPins & 0x3FFF);
 				switch (bm.memorySourceSelect.S3MSS) {
 				case 0: // Internal Memory
-					z80.DataPins = internalMemory[addressBus];
+					z80.DataPins = systemMemory[addressBus];
 					break;
 				case 1: // AV RAM
 					z80.DataPins = OPEN_BUS;
@@ -135,7 +135,7 @@ bool ByteMaster80::tick(uint32_t cycles) {
 		case (db80::PINS::MREQ | db80::PINS::WR):
 			if (z80.AddrPins >= 0x0000 && z80.AddrPins <= 0x3FFF) {
 				addressBus = (bm.bankSelect[0] << 14) | (z80.AddrPins & 0x3FFF);
-				internalMemory[addressBus] = z80.DataPins;
+				systemMemory[addressBus] = z80.DataPins;
 			}
 			break;
 

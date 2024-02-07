@@ -4,6 +4,8 @@
 #include <array>
 #include <fstream>
 #include "db80.h"
+#include <vector>
+#include <iostream>
 
 #define NUMBER_OF_ROM_PAGES		32
 #define INTERNAL_MEMORY_SIZE_KB	1024
@@ -44,8 +46,8 @@ private:
 
 	// internal memory, first 512KB is ROM, afterwards up to 4MB filled with RAM
 	//std::array<uint8_t, INTERNAL_MEMORY_SIZE_KB * 1024>* internalMemory = new std::array<uint8_t, INTERNAL_MEMORY_SIZE_KB * 1024>();
-	uint8_t* internalMemory = new uint8_t[INTERNAL_MEMORY_SIZE_KB * 1024];
-
+	//uint8_t* internalMemory = new uint8_t[INTERNAL_MEMORY_SIZE_KB * 1024];
+	std::vector<uint8_t> systemMemory;
 
 	// Jacob stop stalking me
 };
