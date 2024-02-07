@@ -27,7 +27,7 @@ void db80::reset() {
 
 void db80::trace() {
 	printf("c %d : t %d : pc 0x%.4X : ir 0x%.2X %-10s : addr 0x%.4X : data 0x%.2X : a 0x%.2X : f 0x%.2X : bc 0x%.4X : de 0x%.4X : hl 0x%.4X \n", 
-		registers.ticks, cpu.tState, registers.pc, registers.ir, getInstruction(registers.ir.pair), AddrPins, DataPins, registers.a, registers.flags.byte, registers.bc.pair, registers.de.pair, registers.hl.pair);
+		registers.ticks, cpu.tState, registers.pc, registers.ir.pair, getInstruction(registers.ir.pair), AddrPins, DataPins, registers.af.a, registers.af.f.byte, registers.bc.pair, registers.de.pair, registers.hl.pair);
 }
 
 /// <summary>
@@ -238,7 +238,7 @@ inline bool db80::decodeAndExecute(void) {
 		return false; // 3,3 cycles left
 
 	case 0x02: // lb (bc),a (4,3)
-		registers.dataBuffer = registers.a;
+		registers.dataBuffer = registers.af.a;
 		registers.addrBuffer.pair = registers.bc.pair;
 		cpu.state = Z_MEMORY_WRITE;
 		return false; // 3 cycles left
@@ -266,8 +266,8 @@ inline bool db80::decodeAndExecute(void) {
 		break; // instruction complete
 
 	case 0x08: // ex af,af' (4)
-		std::swap(registers.a, registers.ap);
-		std::swap(registers.flags.byte, registers.flagsp.byte);
+		std::swap(registers.af.a, registers.afp.a);
+		std::swap(registers.af.f.byte, registers.afp.f.byte);
 		break; // instruction complete
 
 	case 0x09: // add hl,bc (4,4,3)
@@ -281,9 +281,18 @@ inline bool db80::decodeAndExecute(void) {
 		cpu.nextState = Z_JR;
 		return false; // 8 cycles left
 
+	case 0x3C: // inc a (4)
+		incReg(registers.af.a);
+		break; // instruction complete
+
+	case 0x3E: // ld a,b (4,3)
+		registers.regDest = &registers.af.a;
+		cpu.state = Z_MEMORY_READ;
+		return false; // 3 cycles left
+
 	case 0xD3: // out (n),a (4,3,4)
-		registers.addrBuffer.h = registers.a; // Accumulator on A15..A8
-		registers.dataBuffer = registers.a;
+		registers.addrBuffer.h = registers.af.a; // Accumulator on A15..A8
+		registers.dataBuffer = registers.af.a;
 		registers.regDest = &registers.addrBuffer.l;
 		cpu.state = Z_MEMORY_READ;
 		cpu.nextState = Z_IO_WRITE;
@@ -307,31 +316,31 @@ inline bool db80::decodeAndExecute(void) {
 
 inline void db80::decReg(uint8_t& reg) {
 	reg--;
-	registers.flags.S = (reg & 0x80) ? 1 : 0;
-	registers.flags.PV = (reg == 0x7F) ? 1 : 0;
-	registers.flags.Z = (reg == 0x00) ? 1 : 0;
-	registers.flags.N = 1;
+	registers.af.f.S = (reg & 0x80) ? 1 : 0;
+	registers.af.f.PV = (reg == 0x7F) ? 1 : 0;
+	registers.af.f.Z = (reg == 0x00) ? 1 : 0;
+	registers.af.f.N = 1;
 }
 
 inline void db80::incReg(uint8_t& reg) {
 	reg++;
-	registers.flags.S = (reg & 0x80) ? 1 : 0;
-	registers.flags.PV = (reg == 0x80) ? 1 : 0;
-	registers.flags.Z = (reg == 0x00) ? 1 : 0;
-	registers.flags.N = 0;
+	registers.af.f.S = (reg & 0x80) ? 1 : 0;
+	registers.af.f.PV = (reg == 0x80) ? 1 : 0;
+	registers.af.f.Z = (reg == 0x00) ? 1 : 0;
+	registers.af.f.N = 0;
 }
 
 inline void db80::rlca() {
-	uint8_t cy = registers.flags.C == 1 ? 1 : 0;
-	registers.flags.C = registers.a & 0x80 ? 1 : 0;
-	registers.a <<= 1;
-	registers.a += cy;
-	registers.flags.byte &= ~(H | N);
+	uint8_t cy = registers.af.f.C == 1 ? 1 : 0;
+	registers.af.f.C = registers.af.a & 0x80 ? 1 : 0;
+	registers.af.a <<= 1;
+	registers.af.a += cy;
+	registers.af.f.byte &= ~(H | N);
 }
 
 inline void db80::addRegPair(uint16_t& dest, uint16_t& src) {
 	dest = dest + src;
-	registers.flags.N = 0;
+	registers.af.f.N = 0;
 	// TODO set H and C
 }
 
@@ -364,6 +373,9 @@ const char* db80::getInstruction(uint8_t op) {
 
 	case 0x18:
 		return "jr d";
+
+	case 0x3E:
+		return "ld a,n";
 
 	case 0xD3:
 		return "out (n),a";

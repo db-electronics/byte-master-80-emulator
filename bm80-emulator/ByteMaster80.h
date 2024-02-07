@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <array>
+#include <fstream>
 #include "db80.h"
 
 #define NUMBER_OF_ROM_PAGES		32
@@ -42,7 +43,9 @@ private:
 	uint32_t addressBus;
 
 	// internal memory, first 512KB is ROM, afterwards up to 4MB filled with RAM
-	std::array<uint8_t, INTERNAL_MEMORY_SIZE_KB * 1024>* internalMemory = new std::array<uint8_t, INTERNAL_MEMORY_SIZE_KB * 1024>();
+	//std::array<uint8_t, INTERNAL_MEMORY_SIZE_KB * 1024>* internalMemory = new std::array<uint8_t, INTERNAL_MEMORY_SIZE_KB * 1024>();
+	uint8_t* internalMemory = new uint8_t[INTERNAL_MEMORY_SIZE_KB * 1024];
+
 
 	// Jacob stop stalking me
 };

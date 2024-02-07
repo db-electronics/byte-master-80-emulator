@@ -28,15 +28,15 @@ public:
 		}
 
 		DrawString(x, y, "FLAGS:", olc::WHITE);
-		DrawString(x + 64, y, "S", bm80.z80.registers.flags.S ? olc::GREEN : olc::RED);
-		DrawString(x + 80, y, "Z", bm80.z80.registers.flags.Z ? olc::GREEN : olc::RED);
+		DrawString(x + 64, y, "S", bm80.z80.registers.af.f.S ? olc::GREEN : olc::RED);
+		DrawString(x + 80, y, "Z", bm80.z80.registers.af.f.Z ? olc::GREEN : olc::RED);
 		DrawString(x + 96, y, "-", olc::GREY);
-		DrawString(x + 112, y, "H", bm80.z80.registers.flags.H ? olc::GREEN : olc::RED);
+		DrawString(x + 112, y, "H", bm80.z80.registers.af.f.H ? olc::GREEN : olc::RED);
 		DrawString(x + 128, y, "-", olc::GREY);
-		DrawString(x + 144, y, "V", bm80.z80.registers.flags.PV ? olc::GREEN : olc::RED);
-		DrawString(x + 160, y, "N", bm80.z80.registers.flags.N ? olc::GREEN : olc::RED);
-		DrawString(x + 176, y, "C", bm80.z80.registers.flags.C ? olc::GREEN : olc::RED);
-		DrawString(x, y + 10, "A : $" + hex(bm80.z80.registers.a, 2), olc::WHITE);
+		DrawString(x + 144, y, "V", bm80.z80.registers.af.f.PV ? olc::GREEN : olc::RED);
+		DrawString(x + 160, y, "N", bm80.z80.registers.af.f.N ? olc::GREEN : olc::RED);
+		DrawString(x + 176, y, "C", bm80.z80.registers.af.f.C ? olc::GREEN : olc::RED);
+		DrawString(x, y + 10, "A : $" + hex(bm80.z80.registers.af.a, 2), olc::WHITE);
 		DrawString(x, y + 20, "BC: $" + hex(bm80.z80.registers.bc.pair, 4), olc::WHITE);
 		DrawString(x, y + 30, "DE: $" + hex(bm80.z80.registers.de.pair, 4), olc::WHITE);
 		DrawString(x, y + 40, "HL: $" + hex(bm80.z80.registers.hl.pair, 4), olc::WHITE);

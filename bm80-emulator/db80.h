@@ -105,8 +105,8 @@ public:
 		uint8_t* regDest;
 		uint16_t* regPairDest;
 		uint16_t sp, pc, ix, iy;
-		uint8_t tmp, instructionReg, iff1, iff2, rstCount, dataBuffer;
-		uint8_t a, ap;
+		uint8_t tmp, instructionReg, dataBuffer;
+		bool iff1, iff2;
 
 		union _FLAGS{
 			struct {
@@ -120,7 +120,7 @@ public:
 				unsigned S  : 1;
 			};
 			uint8_t byte;
-		}flags, flagsp;
+		};
 
 		union _AF {
 			struct {
@@ -129,7 +129,6 @@ public:
 			};
 			uint16_t pair;
 		}af, afp;
-
 
 		union _IR {
 			struct {
