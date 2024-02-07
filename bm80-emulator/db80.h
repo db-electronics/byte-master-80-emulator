@@ -51,7 +51,7 @@ public:
 	/// Advance the Z80 state by one clock period
 	/// </summary>
 	/// <param name="cycles"></param>
-	void tick(uint32_t cycles);
+	bool tick(uint32_t cycles);
 
 	/// <summary>
 	/// return a string representing the current cpu state
@@ -85,6 +85,7 @@ public:
 		Z_MEMORY_READ_ADDR,
 		Z_MEMORY_WRITE,
 		Z_JR,
+		Z_16BIT_ADD,
 		Z_IO_READ,
 		Z_IO_WRITE,
 		Z_INT_ACK,
@@ -100,16 +101,11 @@ public:
 
 	// z80 registers
 	struct Z_REGISTERS {
-		Z_MACHINE_CYCLE state;
-		Z_MACHINE_CYCLE nextState;
-		Z_INTERRUPT_MODE intMode;
 		uint32_t ticks;
 		uint8_t* regDest;
 		uint16_t* regPairDest;
 		uint16_t sp, pc, ix, iy;
 		uint8_t i, r, tmp, ir, iff1, iff2, rstCount, dataBuffer;
-		uint8_t tState;
-
 		uint8_t a, ap;
 
 		union _FLAGS{
@@ -163,14 +159,22 @@ public:
 
 private:
 
+	struct Z_CPU_STATE {
+		Z_MACHINE_CYCLE state;
+		Z_MACHINE_CYCLE nextState;
+		Z_INTERRUPT_MODE intMode;
+		uint8_t tState;
+	}cpu;
+
 	const uint8_t RST_STATE_LENGTH = 3;
 
 	void reset();
 
-	void decodeAndExecute();
+	bool decodeAndExecute();
 	void decReg(uint8_t& reg);
 	void incReg(uint8_t& reg);
 	void rlca();
+	void addRegPair(uint16_t& dest, uint16_t& src);
 
 	// thanks to https://github.com/redcode/Z80/blob/master/sources/Z80.c for parity lookup
 	uint8_t parityLookup[256] = {
