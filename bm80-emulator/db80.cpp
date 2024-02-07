@@ -20,15 +20,14 @@ void db80::reset() {
 	CtrlPins.word = 0;
 	registers.ticks = 0;
 	registers.pc = 0;
-	registers.i = 0;
-	registers.r = 0;
+	registers.ir.pair = 0;
 	AddrPins = 0xFFFF;
 	DataPins = 0xFF;
 }
 
 void db80::trace() {
 	printf("c %d : t %d : pc 0x%.4X : ir 0x%.2X %-10s : addr 0x%.4X : data 0x%.2X : a 0x%.2X : f 0x%.2X : bc 0x%.4X : de 0x%.4X : hl 0x%.4X \n", 
-		registers.ticks, cpu.tState, registers.pc, registers.ir, getInstruction(registers.ir), AddrPins, DataPins, registers.a, registers.flags.byte, registers.bc.pair, registers.de.pair, registers.hl.pair);
+		registers.ticks, cpu.tState, registers.pc, registers.ir, getInstruction(registers.ir.pair), AddrPins, DataPins, registers.a, registers.flags.byte, registers.bc.pair, registers.de.pair, registers.hl.pair);
 }
 
 /// <summary>
@@ -66,13 +65,13 @@ bool db80::tick(uint32_t cycles) {
 			AddrPins = registers.pc++;
 			return false;
 		case 2:
-			registers.ir = DataPins;
+			registers.instructionReg = DataPins;
 			CtrlPins.word &= ~(MREQ | RD | M1); // shorten this cycle to prevent the bus from writing twice
-			registers.r++; // this needs to only increment the ls 7 bits
 			return false;
 		case 3:
 			CtrlPins.word |= (MREQ | RFSH);
-			AddrPins = (uint16_t)(registers.i << 8 | registers.r);
+			AddrPins = registers.ir.pair;
+			registers.ir.r = (registers.ir.r & 0x80) | (registers.ir.r++ & 0x7F);
 			cpu.nextState = Z_OPCODE_FETCH; // ensure this is default, instructions which need additional m cycles can change it
 			return false;
 		case 4:
@@ -221,30 +220,30 @@ bool db80::tick(uint32_t cycles) {
 }
 
 /// <summary>
-/// Operate based on instruction register contents.
+/// Operate based on instruction register contents. There is no t state counting here.
 /// If more machine cycles are required, set the cpu.state and optionally cpu.nextState, and return.
-/// Otherwise break to invoke an opcode fetch
+/// Otherwise break to invoke an opcode fetch.
 /// </summary>
 /// <param name=""></param>
 /// <returns>True if instruction is finished</returns>
 inline bool db80::decodeAndExecute(void) {
 	cpu.tState = 0;
-	switch (registers.ir) {
+	switch (registers.instructionReg) {
 	case 0x00: // nop (4)
-		break;
+		break; // instruction clone
 
 	case 0x01: // ld bc,nn (4,3,3)
 		registers.regPairDest = &registers.bc.pair;
 		cpu.state = Z_MEMORY_READ_EXT;
 		return false; // 3,3 cycles left
 
-	case 0x02: // lb (bc),a
+	case 0x02: // lb (bc),a (4,3)
 		registers.dataBuffer = registers.a;
 		registers.addrBuffer.pair = registers.bc.pair;
 		cpu.state = Z_MEMORY_WRITE;
 		return false; // 3 cycles left
 
-	case 0x03: // inc bc
+	case 0x03: // inc bc (
 		registers.bc.pair++;	// I know this only happens later, but meh this is still externally cycle accurate
 		cpu.state = Z_M1_EXT;
 		return false; // 2 cycles left
@@ -292,11 +291,11 @@ inline bool db80::decodeAndExecute(void) {
 
 	case 0xF3: // di (4)
 		registers.iff1 = 0;
-		registers.iff1 = 0;
+		registers.iff2 = 0;
 		break; // instruction complete
 
 	default:
-		break;
+		return false;
 	}
 
 	// only reach here if instruction is complete
@@ -337,7 +336,7 @@ inline void db80::addRegPair(uint16_t& dest, uint16_t& src) {
 }
 
 const char* db80::getInstruction() {
-	return getInstruction(registers.ir);
+	return getInstruction(registers.instructionReg);
 }
 
 const char* db80::getInstruction(uint8_t op) {

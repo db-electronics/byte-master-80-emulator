@@ -46,8 +46,8 @@ public:
 		DrawString(x + 88, y + 10, bm80.z80.getInstruction(), olc::WHITE);
 		DrawString(x + 88, y + 20, opcode, olc::GREY);
 		DrawString(x + 170, y + 20, " " + hex(instrCycles, 2), olc::GREY);
-		DrawString(x + 88, y + 30, "I   : $" + hex(bm80.z80.registers.i, 2), olc::WHITE);
-		DrawString(x + 88, y + 40, "R   : $" + hex(bm80.z80.registers.r, 2), olc::WHITE);
+		DrawString(x + 88, y + 30, "I   : $" + hex(bm80.z80.registers.ir.i, 2), olc::WHITE);
+		DrawString(x + 88, y + 40, "R   : $" + hex(bm80.z80.registers.ir.r, 2), olc::WHITE);
 		DrawString(x + 88, y + 50, "DATA: $" + hex(bm80.z80.DataPins, 2), olc::WHITE);
 		DrawString(x + 88, y + 60, "ADDR: $" + hex(bm80.z80.AddrPins, 4), olc::WHITE);
 		DrawString(x + 88, y + 70, "CYC : $" + hex(bm80.z80.registers.ticks, 4), olc::WHITE);
