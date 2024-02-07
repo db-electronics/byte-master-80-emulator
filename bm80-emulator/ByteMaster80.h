@@ -8,7 +8,8 @@
 #include <iostream>
 
 #define NUMBER_OF_ROM_PAGES		32
-#define INTERNAL_MEMORY_SIZE_KB	1024
+#define BM80_ROM_SIZE_KB		512
+#define BM80_RAM_SIZE_KB		512
 #define OPEN_BUS				0xFF
 
 class ByteMaster80

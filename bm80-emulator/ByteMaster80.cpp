@@ -5,27 +5,11 @@ ByteMaster80::ByteMaster80()
 	// initialize RAM to garbage
 	//for (auto& i : *internalMemory) i = (uint8_t)rand();
 
-	//(*internalMemory)[0] = 0x00; // NOP
-	//(*internalMemory)[1] = 0x01; // LD BC,nn
-	//(*internalMemory)[2] = 0x12; // n
-	//(*internalMemory)[3] = 0x34; // n
-	//(*internalMemory)[4] = 0x02; // LD (BC), a
-	//(*internalMemory)[5] = 0x03; // INC BC
-	//(*internalMemory)[6] = 0x04; // INC b
-	//(*internalMemory)[7] = 0x05; // DEC b
-	//(*internalMemory)[8] = 0x06; // LD B, n
-	//(*internalMemory)[9] = 0xAA; // n
-	//(*internalMemory)[10] = 0x18; // JR d
-	//(*internalMemory)[11] = -12; // d
-
-	//uint8_t testRom[] = { 0x00, 0xD3, 0x00, 0xD3, 0x01, 0xD3, 0x02, 0xD3, 0x03, 0x18, -11 };
-	//for (int i = 0; i < 11; i++) {
-	//	(*internalMemory)[i] = testRom[i];
-	//}
+	systemMemory.resize((BM80_ROM_SIZE_KB + BM80_RAM_SIZE_KB) * 1024);
 
 	std::ifstream file("C:\\Git\\WLA-DX\\byte-master-80-utils\\Test ROM\\test.bin", std::ios::binary);
 	//ifs.open("C:\\Git\\WLA-DX\\byte-master-80-utils\\Test ROM\\test.bin", std::ios::binary);
-	
+
 	if (file) {
 		systemMemory.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
 		file.close();
@@ -41,7 +25,6 @@ void ByteMaster80::reset(void) {
 	bm.bankSelect[2] = (uint8_t)rand();
 	bm.bankSelect[3] = (uint8_t)rand();
 	bm.memorySourceSelect.byte = 0;
-
 }
 
 ByteMaster80::~ByteMaster80()
