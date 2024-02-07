@@ -18,7 +18,7 @@ public:
 	// devices connected to system
 	db80 z80;
 
-	uint32_t tick(uint32_t cycles);
+	bool tick(uint32_t cycles);
 
 private:
 	union _mss {

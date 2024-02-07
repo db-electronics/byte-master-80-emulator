@@ -6,23 +6,23 @@ ByteMaster80::ByteMaster80()
 	// initialize RAM to garbage
 	for (auto& i : *internalMemory) i = (uint8_t)rand();
 
-	//(*internalMemory)[0] = 0x00; // NOP
-	//(*internalMemory)[1] = 0x01; // LD BC,nn
-	//(*internalMemory)[2] = 0x12; // n
-	//(*internalMemory)[3] = 0x34; // n
-	//(*internalMemory)[4] = 0x02; // LD (BC), a
-	//(*internalMemory)[5] = 0x03; // INC BC
-	//(*internalMemory)[6] = 0x04; // INC b
-	//(*internalMemory)[7] = 0x05; // DEC b
-	//(*internalMemory)[8] = 0x06; // LD B, n
-	//(*internalMemory)[9] = 0xAA; // n
-	//(*internalMemory)[10] = 0x18; // JR d
-	//(*internalMemory)[11] = -12; // d
+	(*internalMemory)[0] = 0x00; // NOP
+	(*internalMemory)[1] = 0x01; // LD BC,nn
+	(*internalMemory)[2] = 0x12; // n
+	(*internalMemory)[3] = 0x34; // n
+	(*internalMemory)[4] = 0x02; // LD (BC), a
+	(*internalMemory)[5] = 0x03; // INC BC
+	(*internalMemory)[6] = 0x04; // INC b
+	(*internalMemory)[7] = 0x05; // DEC b
+	(*internalMemory)[8] = 0x06; // LD B, n
+	(*internalMemory)[9] = 0xAA; // n
+	(*internalMemory)[10] = 0x18; // JR d
+	(*internalMemory)[11] = -12; // d
 
-	uint8_t testRom[] = { 0x00, 0xD3, 0x00, 0xD3, 0x01, 0xD3, 0x02, 0xD3, 0x03, 0x18, -11 };
-	for (int i = 0; i < 11; i++) {
-		(*internalMemory)[i] = testRom[i];
-	}
+	//uint8_t testRom[] = { 0x00, 0xD3, 0x00, 0xD3, 0x01, 0xD3, 0x02, 0xD3, 0x03, 0x18, -11 };
+	//for (int i = 0; i < 11; i++) {
+	//	(*internalMemory)[i] = testRom[i];
+	//}
 
 	reset();
 }
@@ -42,17 +42,18 @@ ByteMaster80::~ByteMaster80()
 	delete internalMemory;
 }
 
-uint32_t ByteMaster80::tick(uint32_t cycles) {
+bool ByteMaster80::tick(uint32_t cycles) {
 	static uint32_t instCycles;
 
 	while (cycles--) {
 		instCycles++;
-		if (z80.tick(1)) {
-			// indicates completion of instruction
-			printf("instruction took %d cycles\n", instCycles);
-			instCycles = 0;
-		}
-		z80.trace();
+		z80.tick(1);
+		//if (z80.instructionComplete()) {
+		//	// indicates completion of instruction
+		//	printf("instruction took %d cycles\n", instCycles);
+		//	instCycles = 0;
+		//}
+		//z80.trace();
 
 		switch (z80.CtrlPins.word) {
 		case(db80::PINS::MREQ | db80::PINS::RD | db80::PINS::M1): // Opcode fetch
@@ -130,6 +131,8 @@ uint32_t ByteMaster80::tick(uint32_t cycles) {
 				(*internalMemory)[addressBus] = z80.DataPins;
 			}
 			break;
+
+		// TODO change these to 0xFC - 0xFF
 		case (db80::PINS::IORQ | db80::PINS::WR):
 			switch (z80.AddrPins & 0xFF) {
 				// addresses 0 to 7 are mirrored at 8 to 15
@@ -165,6 +168,6 @@ uint32_t ByteMaster80::tick(uint32_t cycles) {
 			break;
 		}
 	}
-	return 0;
+	return z80.instructionComplete();
 }
 

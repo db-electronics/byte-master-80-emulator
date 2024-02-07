@@ -51,21 +51,21 @@ public:
 	/// Advance the Z80 state by one clock period
 	/// </summary>
 	/// <param name="cycles"></param>
-	/// <returns>True when an instruction has completed</returns>
-	bool tick(uint32_t cycles);
+	void tick(uint32_t cycles);
 
+	/// <summary>
+	/// return a string representing the current cpu state
+	/// </summary>
 	void trace();
 
+	/// <summary>
+	/// Is the current instruction complete
+	/// </summary>
+	/// <returns></returns>
+	bool instructionComplete();
+
+	const char* getInstruction();
 	const char* getInstruction(uint8_t op);
-
-private:
-
-	const uint8_t RST_STATE_LENGTH = 3;
-
-	void operate();
-	void decReg(uint8_t& reg);
-	void incReg(uint8_t& reg);
-	void rlca();
 
 	enum Z_FLAGS {
 		C  = (1 << 0), // carry
@@ -158,7 +158,19 @@ private:
 			uint16_t pair;
 		}wz;
 
-	}z80;
+	}registers;
+
+
+private:
+
+	const uint8_t RST_STATE_LENGTH = 3;
+
+	void reset();
+
+	void decodeAndExecute();
+	void decReg(uint8_t& reg);
+	void incReg(uint8_t& reg);
+	void rlca();
 
 	// thanks to https://github.com/redcode/Z80/blob/master/sources/Z80.c for parity lookup
 	uint8_t parityLookup[256] = {
