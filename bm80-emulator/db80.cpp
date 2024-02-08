@@ -27,7 +27,7 @@ void db80::reset() {
 
 void db80::trace() {
 	printf("c %d : t %d : pc 0x%.4X : ir 0x%.2X %-10s : addr 0x%.4X : data 0x%.2X : a 0x%.2X : f 0x%.2X : bc 0x%.4X : de 0x%.4X : hl 0x%.4X \n", 
-		registers.ticks, cpu.tState, registers.pc, registers.ir.pair, getInstruction(registers.ir.pair), AddrPins, DataPins, registers.af.a, registers.af.f.byte, registers.bc.pair, registers.de.pair, registers.hl.pair);
+		registers.ticks, cpu.tState, registers.pc, registers.instructionReg, getInstruction(), AddrPins, DataPins, registers.af.a, registers.af.f.byte, registers.bc.pair, registers.de.pair, registers.hl.pair);
 }
 
 /// <summary>

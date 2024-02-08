@@ -45,10 +45,8 @@ private:
 
 	uint32_t addressBus;
 
-	// internal memory, first 512KB is ROM, afterwards up to 4MB filled with RAM
-	//std::array<uint8_t, INTERNAL_MEMORY_SIZE_KB * 1024>* internalMemory = new std::array<uint8_t, INTERNAL_MEMORY_SIZE_KB * 1024>();
-	//uint8_t* internalMemory = new uint8_t[INTERNAL_MEMORY_SIZE_KB * 1024];
-	std::vector<uint8_t> systemMemory;
+	std::vector<uint8_t> systemRom;
+	std::vector<uint8_t> systemRam;
 
 	// Jacob stop stalking me
 };
