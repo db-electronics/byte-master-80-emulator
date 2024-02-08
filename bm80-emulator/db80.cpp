@@ -376,7 +376,8 @@ const char* db80::getInstruction(uint8_t op) {
 
 	case 0x3E:
 		return "ld a,n";
-
+	case 0x3C:
+		return "inc a";
 	case 0xD3:
 		return "out (n),a";
 	case 0xF3:
