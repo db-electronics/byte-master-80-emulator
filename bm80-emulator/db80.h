@@ -83,6 +83,7 @@ public:
 		Z_OPCODE_FETCH,
 		Z_M1_EXT,
 		Z_MEMORY_READ,
+		Z_DJNZ,
 		Z_MEMORY_READ_IND,
 		Z_MEMORY_READ_EXT,
 		Z_MEMORY_READ_ADDR,
@@ -193,6 +194,7 @@ private:
 	void decReg(uint8_t& reg);
 	void incReg(uint8_t& reg);
 	void rlca();
+	void rrca();
 	void addRegPair(uint16_t& dest, uint16_t& src);
 
 	// thanks to https://github.com/redcode/Z80/blob/master/sources/Z80.c for parity lookup

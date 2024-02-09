@@ -109,6 +109,20 @@ bool db80::tick(uint32_t cycles) {
 			return false;
 		}
 		break;
+	case Z_DJNZ:
+		switch (cpu.tState) {
+		case 1:
+			registers.bc.b--;
+			if (registers.bc.b != 0) { // take the branch?
+				cpu.tState = 0;
+				cpu.state = Z_JR;
+				return false;
+			}
+			break; // else b == 0, instruction is complete
+		default:
+			return false;
+		}
+		break;
 	case Z_MEMORY_READ_IND:
 		switch (cpu.tState) {
 		case 1:
@@ -250,7 +264,7 @@ inline bool db80::decodeAndExecute(void) {
 	cpu.tState = 0;
 	switch (registers.instructionReg) {
 	case 0x00: // nop (4)
-		break; // instruction clone
+		break; // instruction complete
 
 	case 0x01: // ld bc,nn (4,3,3)
 		registers.regPairDest = &registers.bc.pair;
@@ -263,25 +277,25 @@ inline bool db80::decodeAndExecute(void) {
 		cpu.state = Z_MEMORY_WRITE;
 		return false; // 3 cycles left
 
-	case 0x03: // inc bc (
+	case 0x03: // inc bc (6)
 		registers.bc.pair++;	// I know this only happens later, but meh this is still externally cycle accurate
 		cpu.state = Z_M1_EXT;
 		return false; // 2 cycles left
 
-	case 0x04: // inc b
+	case 0x04: // inc b (4)
 		incReg(registers.bc.b);
 		break; // instruction complete
 
-	case 0x05: // dec b
+	case 0x05: // dec b (4)
 		decReg(registers.bc.b);
 		break; // instruction complete
 
-	case 0x06: // ld b,n
+	case 0x06: // ld b,n (4,3)
 		registers.regDest = &registers.bc.b;
 		cpu.state = Z_MEMORY_READ;
 		return false; // 3 cycles left
 
-	case 0x07: // rlca
+	case 0x07: // rlca (4)
 		rlca();
 		break; // instruction complete
 
@@ -306,13 +320,28 @@ inline bool db80::decodeAndExecute(void) {
 		cpu.state = Z_M1_EXT;
 		return false; // 2 cycles left
 
-	case 0x0C: // inc c
+	case 0x0C: // inc c (4)
 		incReg(registers.bc.c);
 		break; // instruction complete
 
-	case 0x0D: // dec b
+	case 0x0D: // dec b (4)
 		decReg(registers.bc.c);
 		break; // instruction complete
+
+	case 0x0E: // ld c, n (4,3)
+		registers.regDest = &registers.bc.c;
+		cpu.state = Z_MEMORY_READ;
+		return false; // 3 cycles left
+
+	case 0x0F: // rrca (4)
+		rrca();
+		break;	// insctruction complete
+
+	case 0x10: // djnz d ( b != 0 (5,3,5) / b == 0 (5,3) )
+		registers.regDest = &registers.tmp;
+		cpu.state = Z_MEMORY_READ;
+		cpu.nextState = Z_DJNZ;
+		break; // 1+3 or 1+3+5 cycles left
 
 	case 0x18: // JR d - 12 (4,3,5)
 		registers.regDest = &registers.tmp;
@@ -390,12 +419,31 @@ inline void db80::incReg(uint8_t& reg) {
 	reg = res;
 }
 
+// Z80UM p 190
 inline void db80::rlca() {
-	uint8_t cy = registers.af.f.Carry == 1 ? 1 : 0;
-	//registers.af.f.C = registers.af.a & 0x80 ? 1 : 0;
-	//registers.af.a <<= 1;
-	//registers.af.a += cy;
-	//registers.af.f.byte &= ~(H | N);
+	uint8_t res = (registers.af.a << 1) + (registers.af.f.byte & Z_CF);	// shift left, add carry
+	uint8_t flg = registers.af.f.byte & (Z_SF | Z_CF | Z_PVF); // S, Z, PV are not affected
+	
+	registers.af.f.byte =
+		flg |							// S, Z, PV are not affected
+										// H and N are reset
+		Z_CF & (registers.af.a & 0x80); // Carry is data from bit 7 of accumulator
+	
+	registers.af.a = res;
+}
+
+// Z80UM p 190
+inline void db80::rrca() {
+	// bit 0 is copied to the carry flag and also to bit 7
+	uint8_t res = (registers.af.a >> 1) + (registers.af.a << 7);	// shift right, bit 0 to bit 7
+	uint8_t flg = registers.af.f.byte & (Z_SF | Z_CF | Z_PVF); // S, Z, PV are not affected
+
+	registers.af.f.byte =
+		flg |							// S, Z, PV are not affected
+		// H and N are reset
+		Z_CF & (registers.af.a & 0x80); // Carry is data from bit 7 of accumulator
+
+	registers.af.a = res;
 }
 
 // Z80UM p 180
@@ -445,8 +493,12 @@ const char* db80::getInstruction(uint8_t op) {
 		return "dec bc";
 	case 0x0C:
 		return "inc c";
-	case 0x0E:
+	case 0x0D:
 		return "dec c";
+	case 0x0E:
+		return "ld c, n";
+	case 0x0F:
+		return "rrca";
 
 	case 0x18:
 		return "jr d";
