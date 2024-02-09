@@ -5,7 +5,7 @@ ByteMaster80::ByteMaster80()
 	// initialize RAM to garbage
 	//for (auto& i : *internalMemory) i = (uint8_t)rand();
 
-	std::ifstream file("test.bin", std::ios::binary);
+	std::ifstream file("bm80bios.bin", std::ios::binary);
 
 	if (file) {
 		systemRom.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
@@ -13,6 +13,8 @@ ByteMaster80::ByteMaster80()
 	}
 	systemRom.resize(BM80_ROM_SIZE_KB * 1024);
 	systemRam.resize(BM80_RAM_SIZE_KB * 1024);
+
+	_screen = new olc::Sprite(320, 240);
 	reset();
 }
 
@@ -28,6 +30,16 @@ void ByteMaster80::reset(void) {
 ByteMaster80::~ByteMaster80()
 {
 	systemRom.clear();
+}
+
+olc::Sprite& ByteMaster80::GetScreen() {
+	static auto gen = std::bind(std::uniform_int_distribution<>(0, 1), std::default_random_engine());
+	for (int y = 0; y < 240; y++) {
+		for (int x = 0; x < 320; x++) {
+			_screen->SetPixel(x, y, (bool)gen() ? olc::BLACK : olc::GREY);
+		}
+	}
+	return *_screen;
 }
 
 bool ByteMaster80::tick(uint32_t cycles) {
@@ -46,19 +58,23 @@ bool ByteMaster80::tick(uint32_t cycles) {
 		switch (z80.CtrlPins.word) {
 		case(db80::PINS::MREQ | db80::PINS::RD | db80::PINS::M1): // Opcode fetch
 		case(db80::PINS::MREQ | db80::PINS::RD): // Memory Read
-			// slot 0 always points to internal memory
-			// map to the proper page
-			if (z80.AddrPins >= 0x0000 && z80.AddrPins <= 0x3FFF) {
+			
+			switch (z80.AddrPins & 0xC000) {
+			// SLOT 0
+			case 0x0000: 
+				// slot 0 always points to internal memory
+				// map to the proper page
 				if (bm.bankSelect[0] < NUMBER_OF_ROM_PAGES) {
 					addressBus = (bm.bankSelect[0] << 14) | (z80.AddrPins & 0x3FFF);
 					z80.DataPins = systemRom[addressBus];
 				}
 				else {
-					addressBus = ( (bm.bankSelect[0] - NUMBER_OF_ROM_PAGES) << 14) | (z80.AddrPins & 0x3FFF);
+					addressBus = ((bm.bankSelect[0] - NUMBER_OF_ROM_PAGES) << 14) | (z80.AddrPins & 0x3FFF);
 					z80.DataPins = systemRam[addressBus];
 				}
-			}
-			else if (z80.AddrPins >= 0x4000 && z80.AddrPins <= 0x7FFF) {
+				break;
+			// SLOT 1
+			case 0x4000:
 				switch (bm.memorySourceSelect.S1MSS) {
 				case 0: // Internal Memory
 					if (bm.bankSelect[0] < NUMBER_OF_ROM_PAGES) {
@@ -85,8 +101,9 @@ bool ByteMaster80::tick(uint32_t cycles) {
 				default:
 					break;
 				}
-			}
-			else if (z80.AddrPins >= 0x8000 && z80.AddrPins <= 0xBFFF) {
+				break;
+			// SLOT 2
+			case 0x8000:
 				switch (bm.memorySourceSelect.S2MSS) {
 				case 0: // Internal Memory
 					if (bm.bankSelect[0] < NUMBER_OF_ROM_PAGES) {
@@ -113,8 +130,9 @@ bool ByteMaster80::tick(uint32_t cycles) {
 				default:
 					break;
 				}
-			}
-			else if (z80.AddrPins >= 0xC000 && z80.AddrPins <= 0xFFFF) {
+				break;
+			// SLOT 3
+			case 0xC000:
 				switch (bm.memorySourceSelect.S3MSS) {
 				case 0: // Internal Memory
 					if (bm.bankSelect[0] < NUMBER_OF_ROM_PAGES) {
@@ -141,21 +159,28 @@ bool ByteMaster80::tick(uint32_t cycles) {
 				default:
 					break;
 				}
+				break;
+			default:
+				break;
 			}
 			break;
 		case (db80::PINS::MREQ | db80::PINS::WR): // memory write
-			// slot 0 always points to internal memory
-			// map to the proper page
-			if (z80.AddrPins >= 0x0000 && z80.AddrPins <= 0x3FFF) {
+			switch (z80.AddrPins & 0xC000) {
+			// SLOT 0
+			case 0x0000:
+				// slot 0 always points to internal memory
+				// map to the proper page
 				if (bm.bankSelect[0] < NUMBER_OF_ROM_PAGES) {
 					// block writing to ROM for now
+					// TODO flash programming algorithm
 				}
 				else {
 					addressBus = ((bm.bankSelect[0] - NUMBER_OF_ROM_PAGES) << 14) | (z80.AddrPins & 0x3FFF);
 					systemRam[addressBus] = z80.DataPins;
 				}
-			}
-			else if (z80.AddrPins >= 0x4000 && z80.AddrPins <= 0x7FFF) {
+				break;
+			// SLOT 1
+			case 0x4000:
 				switch (bm.memorySourceSelect.S1MSS) {
 				case 0: // Internal Memory
 					if (bm.bankSelect[1] < NUMBER_OF_ROM_PAGES) {
@@ -178,8 +203,9 @@ bool ByteMaster80::tick(uint32_t cycles) {
 				default:
 					break;
 				}
-			}
-			else if (z80.AddrPins >= 0x8000 && z80.AddrPins <= 0xBFFF) {
+				break;
+			// SLOT 2
+			case 0x8000:
 				switch (bm.memorySourceSelect.S2MSS) {
 				case 0: // Internal Memory
 					if (bm.bankSelect[2] < NUMBER_OF_ROM_PAGES) {
@@ -202,8 +228,9 @@ bool ByteMaster80::tick(uint32_t cycles) {
 				default:
 					break;
 				}
-			}
-			else if (z80.AddrPins >= 0xC000 && z80.AddrPins <= 0xFFFF) {
+				break;
+			// SLOT 3
+			case 0xC000:
 				switch (bm.memorySourceSelect.S3MSS) {
 				case 0: // Internal Memory
 					if (bm.bankSelect[3] < NUMBER_OF_ROM_PAGES) {
@@ -226,9 +253,11 @@ bool ByteMaster80::tick(uint32_t cycles) {
 				default:
 					break;
 				}
+				break;
+			default:
+				break;
 			}
 			break;
-
 		// TODO change these to 0xFC - 0xFF
 		case (db80::PINS::IORQ | db80::PINS::WR):
 			switch (z80.AddrPins & 0xFF) {

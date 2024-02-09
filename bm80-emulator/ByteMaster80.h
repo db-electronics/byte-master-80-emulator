@@ -1,11 +1,15 @@
 #pragma once
 
-#include <cstdint>
-#include <array>
-#include <fstream>
 #include "db80.h"
+#include "olcPixelGameEngine.h"
+
+#include <cstdint>
+#include <random>
+#include <fstream>
 #include <vector>
 #include <iostream>
+
+
 
 #define NUMBER_OF_ROM_PAGES		32
 #define BM80_ROM_SIZE_KB		512
@@ -22,9 +26,18 @@ public:
 	// devices connected to system
 	db80 z80;
 
+	// advance emulation
 	bool tick(uint32_t cycles);
 
+
+	olc::Sprite& GetScreen();
+
 private:
+	
+	uint32_t addressBus;
+	std::vector<uint8_t> systemRom;
+	std::vector<uint8_t> systemRam;
+
 	union _mss {
 		uint8_t byte;
 		struct {
@@ -43,11 +56,10 @@ private:
 
 	_byteMasterRegisters bm;
 
-	uint32_t addressBus;
-
-	std::vector<uint8_t> systemRom;
-	std::vector<uint8_t> systemRam;
+	olc::Sprite* _screen;
 
 	// Jacob stop stalking me
+	
+
 };
 

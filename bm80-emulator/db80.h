@@ -68,12 +68,14 @@ public:
 	const char* getInstruction(uint8_t op);
 
 	enum Z_FLAGS {
-		C  = (1 << 0), // carry
-		N  = (1 << 1), // substract
-		PV = (1 << 2), // parity/overflow
-		H  = (1 << 4), // half-carry
-		Z  = (1 << 6), // zero
-		S  = (1 << 7)  // sign
+		Z_CF  = (1 << 0), // carry
+		Z_NF  = (1 << 1), // add/substract
+		Z_XF  = (1 << 3), // undocumented
+		Z_PVF = (1 << 2), // parity/overflow
+		Z_HF  = (1 << 4), // half-carry
+		Z_YF  = (1 << 5), // undocumented
+		Z_ZF  = (1 << 6), // zero
+		Z_SF  = (1 << 7)  // sign
 	};
 
 	enum Z_MACHINE_CYCLE {
@@ -81,6 +83,7 @@ public:
 		Z_OPCODE_FETCH,
 		Z_M1_EXT,
 		Z_MEMORY_READ,
+		Z_MEMORY_READ_IND,
 		Z_MEMORY_READ_EXT,
 		Z_MEMORY_READ_ADDR,
 		Z_MEMORY_WRITE,
@@ -101,23 +104,24 @@ public:
 
 	// z80 registers
 	struct Z_REGISTERS {
-		uint32_t ticks;
+		uint32_t ticks, tmp32;
 		uint8_t* regDest;
 		uint16_t* regPairDest;
 		uint16_t sp, pc, ix, iy;
 		uint8_t tmp, instructionReg, dataBuffer;
+		Z_INTERRUPT_MODE intMode;
 		bool iff1, iff2;
 
 		union _FLAGS{
 			struct {
-				unsigned C  : 1;
-				unsigned N  : 1;
-				unsigned PV : 1;
-				unsigned    : 1;
-				unsigned H  : 1;
-				unsigned    : 1;
-				unsigned Z  : 1;
-				unsigned S  : 1;
+				unsigned Carry  : 1;
+				unsigned AddSub  : 1;
+				unsigned Overflow : 1;
+				unsigned X   : 1;
+				unsigned HalfCarry  : 1;
+				unsigned Y   : 1;
+				unsigned Zero  : 1;
+				unsigned Sign  : 1;
 			};
 			uint8_t byte;
 		};
@@ -178,7 +182,6 @@ private:
 	struct Z_CPU_STATE {
 		Z_MACHINE_CYCLE state;
 		Z_MACHINE_CYCLE nextState;
-		Z_INTERRUPT_MODE intMode;
 		uint8_t tState;
 	}cpu;
 

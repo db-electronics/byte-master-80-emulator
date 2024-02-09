@@ -14,7 +14,7 @@ db80::~db80() {
 void db80::reset() {
 	cpu.state = Z_OPCODE_FETCH;
 	cpu.tState = 0;
-	cpu.intMode = Z_MODE_0;
+	registers.intMode = Z_MODE_0;
 	registers.iff1 = 0;
 	registers.iff2 = 0;
 	CtrlPins.word = 0;
@@ -71,7 +71,7 @@ bool db80::tick(uint32_t cycles) {
 		case 3:
 			CtrlPins.word |= (MREQ | RFSH);
 			AddrPins = registers.ir.pair;
-			registers.ir.r = (registers.ir.r & 0x80) | (registers.ir.r++ & 0x7F);
+			registers.ir.r = (registers.ir.r & 0x80) | (++registers.ir.r & 0x7F);
 			cpu.nextState = Z_OPCODE_FETCH; // ensure this is default, instructions which need additional m cycles can change it
 			return false;
 		case 4:
@@ -93,6 +93,26 @@ bool db80::tick(uint32_t cycles) {
 		switch (cpu.tState) {
 		case 1:
 			AddrPins = registers.pc++;
+			CtrlPins.word |= (MREQ | RD);
+			return false;
+		case 2:
+			*registers.regDest = DataPins;
+			CtrlPins.word &= ~(MREQ | RD);
+			return false;
+		case 3:
+			cpu.tState = 0;
+			cpu.state = cpu.nextState;
+			if (cpu.nextState != Z_OPCODE_FETCH) // some instructions end here, other keep going
+				return false;
+			break; // else instruction is complete
+		default:
+			return false;
+		}
+		break;
+	case Z_MEMORY_READ_IND:
+		switch (cpu.tState) {
+		case 1:
+			AddrPins = registers.addrBuffer.pair;
 			CtrlPins.word |= (MREQ | RD);
 			return false;
 		case 2:
@@ -275,6 +295,25 @@ inline bool db80::decodeAndExecute(void) {
 		cpu.state = Z_16BIT_ADD;
 		return false; // 7 cycles left
 
+	case 0x0A: // ld a,(bc) (4,3)
+		registers.regDest = &registers.af.a;
+		registers.addrBuffer.pair = registers.bc.pair;
+		cpu.state = Z_MEMORY_READ_IND;
+		return false; // 3 cycles left
+
+	case 0x0B: // dec bc (6)
+		registers.bc.pair--;	// I know this only happens later, but meh this is still externally cycle accurate
+		cpu.state = Z_M1_EXT;
+		return false; // 2 cycles left
+
+	case 0x0C: // inc c
+		incReg(registers.bc.c);
+		break; // instruction complete
+
+	case 0x0D: // dec b
+		decReg(registers.bc.c);
+		break; // instruction complete
+
 	case 0x18: // JR d - 12 (4,3,5)
 		registers.regDest = &registers.tmp;
 		cpu.state = Z_MEMORY_READ;
@@ -313,35 +352,65 @@ inline bool db80::decodeAndExecute(void) {
 }
 
 // ACUMMULATOR Functions
-
+// Z80UM p 164
 inline void db80::decReg(uint8_t& reg) {
-	reg--;
-	registers.af.f.S = (reg & 0x80) ? 1 : 0;
-	registers.af.f.PV = (reg == 0x7F) ? 1 : 0;
-	registers.af.f.Z = (reg == 0x00) ? 1 : 0;
-	registers.af.f.N = 1;
+	// the dec instruction does not set the carry flag
+	uint8_t res = reg - 1;
+	//registers.af.f.S = (reg & 0x80) ? 1 : 0;			// set if result is negative
+	//registers.af.f.Z = (reg == 0x00) ? 1 : 0;			// set if result is zero
+	//registers.af.f.PV = (reg == 0x7F) ? 1 : 0;			// set if result was 0x80 before operation
+	//registers.af.f.H = (reg ^ registers.tmp) & H ? 1 : 0;	// set if borrow from bit 4 (i.e. is bit 4 different after?)
+	//registers.af.f.N = 1;								// is set
+	
+	// this is at least 4 times less asm than the above
+	registers.af.f.byte =
+		Z_SF & (res & 0x80) |		// set if result is negative
+		Z_ZF & (res == 0) |			// set if result is zero
+		Z_PVF & (reg == 0x80) |		// set if register was 0x80 before operation
+		Z_HF & (res ^ reg) |		// set if borrow from bit 4 (i.e. is bit 4 different after?)
+		Z_NF |						// is set
+		registers.af.f.Carry;		// C is unaffected
+
+	reg = res;
 }
 
+// Z80UM p 160
 inline void db80::incReg(uint8_t& reg) {
-	reg++;
-	registers.af.f.S = (reg & 0x80) ? 1 : 0;
-	registers.af.f.PV = (reg == 0x80) ? 1 : 0;
-	registers.af.f.Z = (reg == 0x00) ? 1 : 0;
-	registers.af.f.N = 0;
+	// the inc instruction does not set the carry flag
+	uint8_t res = reg + 1;
+
+	registers.af.f.byte =
+		Z_SF & (res & 0x80) |		// set if result is negative
+		Z_ZF & (res == 0) |			// set if result is zero
+		Z_PVF & (reg == 0x7F) |		// set if register was 0x7F before operation
+		Z_HF & (res ^ reg) |		// set if carry from bit 3 (i.e. is bit 4 different after?)
+									// N is reset
+		registers.af.f.Carry;		// C is unaffected
+
+	reg = res;
 }
 
 inline void db80::rlca() {
-	uint8_t cy = registers.af.f.C == 1 ? 1 : 0;
-	registers.af.f.C = registers.af.a & 0x80 ? 1 : 0;
-	registers.af.a <<= 1;
-	registers.af.a += cy;
-	registers.af.f.byte &= ~(H | N);
+	uint8_t cy = registers.af.f.Carry == 1 ? 1 : 0;
+	//registers.af.f.C = registers.af.a & 0x80 ? 1 : 0;
+	//registers.af.a <<= 1;
+	//registers.af.a += cy;
+	//registers.af.f.byte &= ~(H | N);
 }
 
+// Z80UM p 180
 inline void db80::addRegPair(uint16_t& dest, uint16_t& src) {
-	dest = dest + src;
-	registers.af.f.N = 0;
-	// TODO set H and C
+	uint32_t res = dest + src;
+	//registers.af.f.byte = S & (res & 0x8000) | Z & (res == 0) | PV & (res > 0xFFFF) | C & (res>>16);
+	registers.af.f.byte =
+		Z_SF & (res & 0x80) |				// set if result is negative
+		Z_ZF & (res == 0) |					// set if result is zero
+		Z_PVF & (res > 0xFFFF) |			// set if overflow
+		Z_HF & ((res ^ dest ^ src) >> 8) |	// set if carry from bit 11
+											// N is reset
+		Z_CF & (res >> 16);					// set if carry from bit 15
+
+	dest = (uint16_t)res;
 }
 
 const char* db80::getInstruction() {
@@ -353,9 +422,9 @@ const char* db80::getInstruction(uint8_t op) {
 	case 0x00:
 		return "nop";
 	case 0x01:
-		return "ld bc,nn";
+		return "ld bc, nn";
 	case 0x02:
-		return "ld (bc),a";
+		return "ld (bc), a";
 	case 0x03:
 		return "inc bc";
 	case 0x04:
@@ -363,13 +432,21 @@ const char* db80::getInstruction(uint8_t op) {
 	case 0x05:
 		return "dec b";
 	case 0x06:
-		return "ld b,n";
+		return "ld b, n";
 	case 0x07:
 		return "rlca";
 	case 0x08:
-		return "ex af,af`";
+		return "ex af, af`";
 	case 0x09:
-		return "add hl,bc";
+		return "add hl ,bc";
+	case 0x0A:
+		return "ld a, (bc)";
+	case 0x0B:
+		return "dec bc";
+	case 0x0C:
+		return "inc c";
+	case 0x0E:
+		return "dec c";
 
 	case 0x18:
 		return "jr d";
@@ -379,7 +456,7 @@ const char* db80::getInstruction(uint8_t op) {
 	case 0x3C:
 		return "inc a";
 	case 0xD3:
-		return "out (n),a";
+		return "out (n), a";
 	case 0xF3:
 		return "di";
 	default:
