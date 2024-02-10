@@ -19,7 +19,7 @@ void db80::reset() {
 	registers.iff2 = 0;
 	CtrlPins.word = 0;
 	registers.ticks = 0;
-	registers.pc = 0;
+	registers.pc.pair = 0;
 	registers.ir.pair = 0;
 	AddrPins = 0xFFFF;
 	DataPins = 0xFF;
@@ -27,7 +27,7 @@ void db80::reset() {
 
 void db80::trace() {
 	printf("c %d : t %d : pc 0x%.4X : ir 0x%.2X %-10s : addr 0x%.4X : data 0x%.2X : a 0x%.2X : f 0x%.2X : bc 0x%.4X : de 0x%.4X : hl 0x%.4X \n", 
-		registers.ticks, cpu.tState, registers.pc, registers.instructionReg, getInstruction(), AddrPins, DataPins, registers.af.a, registers.af.f.byte, registers.bc.pair, registers.de.pair, registers.hl.pair);
+		registers.ticks, cpu.tState, registers.pc.pair, registers.instructionReg, getInstruction(), AddrPins, DataPins, registers.af.a, registers.af.f.byte, registers.bc.pair, registers.de.pair, registers.hl.pair);
 }
 
 /// <summary>
@@ -62,7 +62,7 @@ bool db80::tick(uint32_t cycles) {
 		switch (cpu.tState) {
 		case 1:
 			CtrlPins.word |= (MREQ | RD | M1);
-			AddrPins = registers.pc++;
+			AddrPins = registers.pc.pair++;
 			return false;
 		case 2:
 			registers.instructionReg = DataPins;
@@ -92,7 +92,7 @@ bool db80::tick(uint32_t cycles) {
 	case Z_MEMORY_READ:
 		switch (cpu.tState) {
 		case 1:
-			AddrPins = registers.pc++;
+			AddrPins = registers.pc.pair++;
 			CtrlPins.word |= (MREQ | RD);
 			return false;
 		case 2:
@@ -146,7 +146,7 @@ bool db80::tick(uint32_t cycles) {
 	case Z_MEMORY_READ_EXT:
 		switch (cpu.tState) {
 		case 1:
-			AddrPins = registers.pc++;
+			AddrPins = registers.pc.pair++;
 			CtrlPins.word |= (MREQ | RD);
 			return false;
 		case 2:
@@ -156,7 +156,7 @@ bool db80::tick(uint32_t cycles) {
 		case 3:
 			return false;
 		case 4:
-			AddrPins = registers.pc++;
+			AddrPins = registers.pc.pair++;
 			CtrlPins.word |= (MREQ | RD);
 			return false;
 		case 5:
@@ -170,18 +170,76 @@ bool db80::tick(uint32_t cycles) {
 			return false;
 		}
 		break;
+	case Z_MEMORY_READ_SP_EXT:
+		switch (cpu.tState) {
+		case 1:
+			AddrPins = registers.sp.pair++;
+			CtrlPins.word |= (MREQ | RD);
+			return false;
+		case 2:
+			registers.wz.z = DataPins;
+			CtrlPins.word &= ~(MREQ | RD);
+			return false;
+		case 3:
+			return false;
+		case 4:
+			AddrPins = registers.sp.pair++;
+			CtrlPins.word |= (MREQ | RD);
+			return false;
+		case 5:
+			registers.wz.w = DataPins;
+			CtrlPins.word &= ~(MREQ | RD);
+			return false;
+		case 6:
+			*registers.regPairDest = registers.wz.pair;
+			break; // instruction complete
+		default:
+			return false;
+		}
+		break;
 	case Z_JR: // final machine cycle of JR takes 5 cycles
 		switch (cpu.tState) {
 		case 1: // this probably doesn't happen all in here, does it matter?
 			if (registers.tmp & 0x80) {
-				registers.pc += static_cast<uint16_t>(0xFF00 | registers.tmp); // sign extend
+				registers.pc.pair += static_cast<uint16_t>(0xFF00 | registers.tmp); // sign extend
 			}
 			else {
-				registers.pc += static_cast<uint16_t>(registers.tmp);
+				registers.pc.pair += static_cast<uint16_t>(registers.tmp);
 			}
 			return false;
 		case 5:
 			break; // instruction complete
+		default:
+			return false;
+		}
+		break;
+	case Z_PUSH_PC: // push pc to stack during call operations
+		switch (cpu.tState) {
+		case 1:
+			AddrPins = --registers.sp.pair;
+			registers.wz.pair = registers.pc.pair + registers.pushOffset;
+			return false;
+		case 2:
+			CtrlPins.word |= (MREQ | WR);
+			DataPins = registers.wz.w;
+			return false;
+		case 3:
+			CtrlPins.word &= ~(MREQ | WR);
+			return false;
+		case 4:
+			AddrPins = --registers.sp.pair;
+			return false;
+		case 5:
+			CtrlPins.word |= (MREQ | WR);
+			DataPins = registers.wz.z;
+			return false;
+		case 6:
+			CtrlPins.word &= ~(MREQ | WR);
+			return false;
+		case 7:
+			cpu.tState = 0;
+			cpu.state = cpu.nextState;
+			return false; // push complete
 		default:
 			return false;
 		}
@@ -266,8 +324,22 @@ inline bool db80::decodeAndExecute(void) {
 	case 0x00: // nop (4)
 		break; // instruction complete
 
-	case 0x01: // ld bc,nn (4,3,3)
+	// 16 bit load group - Z80UM p 102
+	// 0b00ss0001
+	case 0x01: // ld bc, nn (4,3,3)
 		registers.regPairDest = &registers.bc.pair;
+		cpu.state = Z_MEMORY_READ_EXT;
+		return false; // 3,3 cycles left
+	case 0x11: // ld de, nn (4,3,3)
+		registers.regPairDest = &registers.de.pair;
+		cpu.state = Z_MEMORY_READ_EXT;
+		return false; // 3,3 cycles left
+	case 0x21: // ld hl, nn (4,3,3)
+		registers.regPairDest = &registers.hl.pair;
+		cpu.state = Z_MEMORY_READ_EXT;
+		return false; // 3,3 cycles left
+	case 0x31: // ld sp, nn (4,3,3)
+		registers.regPairDest = &registers.sp.pair;
 		cpu.state = Z_MEMORY_READ_EXT;
 		return false; // 3,3 cycles left
 
@@ -358,6 +430,18 @@ inline bool db80::decodeAndExecute(void) {
 		cpu.state = Z_MEMORY_READ;
 		return false; // 3 cycles left
 
+	case 0xC9: // ret (4,3,3) -> Z_OPCODE_FETCH + Z_MEMORY_READ_EXT
+		registers.regPairDest = &registers.pc.pair;
+		cpu.state = Z_MEMORY_READ_SP_EXT;
+		return false; // 6 cycles left
+
+	case 0xCD: // call nn (4,3,4,3,3) -> Z_OPCODE_FETCH + Z_PUSH_PC + Z_MEMORY_READ_SP_EXT
+		registers.pushOffset = 2; // return address is at pc + 2, we already incremented pc after opcode fetch
+		registers.regPairDest = &registers.pc.pair;
+		cpu.state = Z_PUSH_PC;
+		cpu.nextState = Z_MEMORY_READ_EXT;
+		return false; // 13 cycles left
+
 	case 0xD3: // out (n),a (4,3,4)
 		registers.addrBuffer.h = registers.af.a; // Accumulator on A15..A8
 		registers.dataBuffer = registers.af.a;
@@ -394,8 +478,8 @@ inline void db80::decReg(uint8_t& reg) {
 	// this is at least 4 times less asm than the above
 	registers.af.f.byte =
 		Z_SF & (res & 0x80) |		// set if result is negative
-		Z_ZF & (res == 0) |			// set if result is zero
-		Z_PVF & (reg == 0x80) |		// set if register was 0x80 before operation
+		Z_ZF & (res == 0 ? Z_SF : 0) |			// set if result is zero
+		Z_PVF & (reg == 0x80 ? Z_PVF : 0) |		// set if register was 0x80 before operation
 		Z_HF & (res ^ reg) |		// set if borrow from bit 4 (i.e. is bit 4 different after?)
 		Z_NF |						// is set
 		registers.af.f.Carry;		// C is unaffected
@@ -410,7 +494,7 @@ inline void db80::incReg(uint8_t& reg) {
 
 	registers.af.f.byte =
 		Z_SF & (res & 0x80) |		// set if result is negative
-		Z_ZF & (res == 0) |			// set if result is zero
+		Z_ZF & (res == 0 ? Z_SF : 0) |		// set if result is zero
 		Z_PVF & (reg == 0x7F) |		// set if register was 0x7F before operation
 		Z_HF & (res ^ reg) |		// set if carry from bit 3 (i.e. is bit 4 different after?)
 									// N is reset
@@ -469,8 +553,17 @@ const char* db80::getInstruction(uint8_t op) {
 	switch (op) {
 	case 0x00:
 		return "nop";
+
+	// 16 bit load group
 	case 0x01:
 		return "ld bc, nn";
+	case 0x11:
+		return "ld de, nn";
+	case 0x21:
+		return "ld hl, nn";
+	case 0x31:
+		return "ld sp, nn";
+	
 	case 0x02:
 		return "ld (bc), a";
 	case 0x03:
@@ -507,6 +600,12 @@ const char* db80::getInstruction(uint8_t op) {
 		return "ld a,n";
 	case 0x3C:
 		return "inc a";
+
+	case 0xC9:
+		return "ret";
+	case 0xCD:
+		return "call nn";
+
 	case 0xD3:
 		return "out (n), a";
 	case 0xF3:

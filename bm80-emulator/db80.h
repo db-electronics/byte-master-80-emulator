@@ -86,9 +86,10 @@ public:
 		Z_DJNZ,
 		Z_MEMORY_READ_IND,
 		Z_MEMORY_READ_EXT,
-		Z_MEMORY_READ_ADDR,
+		Z_MEMORY_READ_SP_EXT,
 		Z_MEMORY_WRITE,
 		Z_JR,
+		Z_PUSH_PC,
 		Z_16BIT_ADD,
 		Z_IO_READ,
 		Z_IO_WRITE,
@@ -108,7 +109,7 @@ public:
 		uint32_t ticks, tmp32;
 		uint8_t* regDest;
 		uint16_t* regPairDest;
-		uint16_t sp, pc, ix, iy;
+		uint16_t pushOffset;
 		uint8_t tmp, instructionReg, dataBuffer;
 		Z_INTERRUPT_MODE intMode;
 		bool iff1, iff2;
@@ -165,7 +166,7 @@ public:
 				uint8_t h;
 			};
 			uint16_t pair;
-		}hl, hlp, addrBuffer;
+		}hl, hlp, addrBuffer, pc, sp, ix, iy;
 
 		union _WZ {
 			struct {

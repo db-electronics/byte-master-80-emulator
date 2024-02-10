@@ -53,9 +53,9 @@ private:
 		DrawString(x, y + 20, "BC: $" + hex(bm80.z80.registers.bc.pair, 4), olc::WHITE);
 		DrawString(x, y + 30, "DE: $" + hex(bm80.z80.registers.de.pair, 4), olc::WHITE);
 		DrawString(x, y + 40, "HL: $" + hex(bm80.z80.registers.hl.pair, 4), olc::WHITE);
-		DrawString(x, y + 50, "IX: $" + hex(bm80.z80.registers.ix, 4), olc::WHITE);
-		DrawString(x, y + 60, "IY: $" + hex(bm80.z80.registers.iy, 4), olc::WHITE);
-		DrawString(x, y + 70, "PC: $" + hex(bm80.z80.registers.pc, 4), olc::WHITE);
+		DrawString(x, y + 50, "IX: $" + hex(bm80.z80.registers.ix.pair, 4), olc::WHITE);
+		DrawString(x, y + 60, "IY: $" + hex(bm80.z80.registers.iy.pair, 4), olc::WHITE);
+		DrawString(x, y + 70, "PC: $" + hex(bm80.z80.registers.pc.pair, 4), olc::WHITE);
 		
 		// status flags
 		DrawString(x + 88, y + 10, "F   :", olc::WHITE);
@@ -71,7 +71,7 @@ private:
 		// other registers and important things
 		DrawString(x + 88, y + 20, "I   : $" + hex(bm80.z80.registers.ir.i, 2), olc::WHITE);
 		DrawString(x + 88, y + 30, "R   : $" + hex(bm80.z80.registers.ir.r, 2), olc::WHITE);
-		DrawString(x + 88, y + 40, "WZ  : $" + hex(bm80.z80.registers.wz.pair, 4), olc::WHITE);
+		DrawString(x + 88, y + 40, "SP  : $" + hex(bm80.z80.registers.sp.pair, 4), olc::WHITE);
 		DrawString(x + 88, y + 50, "DATA: $" + hex(bm80.z80.DataPins, 2), olc::WHITE);
 		DrawString(x + 88, y + 60, "ADDR: $" + hex(bm80.z80.AddrPins, 4), olc::WHITE);
 		DrawString(x + 88, y + 70, "CLKS: $" + hex(bm80.z80.registers.ticks, 4), olc::WHITE);

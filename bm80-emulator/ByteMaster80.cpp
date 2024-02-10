@@ -44,10 +44,11 @@ olc::Sprite& ByteMaster80::GetScreen() {
 
 bool ByteMaster80::tick(uint32_t cycles) {
 	static uint32_t instCycles;
+	bool instrComplete = false;
 
 	while (cycles--) {
 		instCycles++;
-		z80.tick(1);
+		instrComplete = z80.tick(1);
 		//if (z80.instructionComplete()) {
 		//	// indicates completion of instruction
 		//	printf("instruction took %d cycles\n", instCycles);
@@ -77,7 +78,7 @@ bool ByteMaster80::tick(uint32_t cycles) {
 			case 0x4000:
 				switch (bm.memorySourceSelect.S1MSS) {
 				case 0: // Internal Memory
-					if (bm.bankSelect[0] < NUMBER_OF_ROM_PAGES) {
+					if (bm.bankSelect[1] < NUMBER_OF_ROM_PAGES) {
 						addressBus = (bm.bankSelect[1] << 14) | (z80.AddrPins & 0x3FFF);
 						z80.DataPins = systemRom[addressBus];
 					}
@@ -106,7 +107,7 @@ bool ByteMaster80::tick(uint32_t cycles) {
 			case 0x8000:
 				switch (bm.memorySourceSelect.S2MSS) {
 				case 0: // Internal Memory
-					if (bm.bankSelect[0] < NUMBER_OF_ROM_PAGES) {
+					if (bm.bankSelect[2] < NUMBER_OF_ROM_PAGES) {
 						addressBus = (bm.bankSelect[2] << 14) | (z80.AddrPins & 0x3FFF);
 						z80.DataPins = systemRom[addressBus];
 					}
@@ -135,7 +136,7 @@ bool ByteMaster80::tick(uint32_t cycles) {
 			case 0xC000:
 				switch (bm.memorySourceSelect.S3MSS) {
 				case 0: // Internal Memory
-					if (bm.bankSelect[0] < NUMBER_OF_ROM_PAGES) {
+					if (bm.bankSelect[3] < NUMBER_OF_ROM_PAGES) {
 						addressBus = (bm.bankSelect[3] << 14) | (z80.AddrPins & 0x3FFF);
 						z80.DataPins = systemRom[addressBus];
 					}
@@ -294,6 +295,6 @@ bool ByteMaster80::tick(uint32_t cycles) {
 			break;
 		}
 	}
-	return z80.instructionComplete();
+	return instrComplete;
 }
 
