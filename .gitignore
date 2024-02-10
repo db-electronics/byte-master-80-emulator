@@ -3,9 +3,8 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
-# BIOS files
-*BIOS.bin
-*bios.bin
+# BIOS
+/bm80-emulator/bm80bios.bin
 
 # User-specific files
 *.rsuser
@@ -400,4 +399,4 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
-/bm80-emulator/bm80bios.bin
+
