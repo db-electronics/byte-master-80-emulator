@@ -29,6 +29,13 @@ public:
 	// advance emulation
 	bool tick(uint32_t cycles);
 
+	/// <summary>
+	/// pass in a 16 bit z80 address and get a pointer to the correct memory bank and contents
+	/// used for dissassembly
+	/// </summary>
+	/// <param name="z80Address"></param>
+	/// <returns></returns>
+	uint8_t* getMemoryBytes(uint16_t z80Address);
 
 	olc::Sprite& GetScreen();
 

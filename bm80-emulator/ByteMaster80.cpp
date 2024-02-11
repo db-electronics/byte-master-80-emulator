@@ -32,6 +32,70 @@ ByteMaster80::~ByteMaster80()
 	systemRom.clear();
 }
 
+uint8_t* ByteMaster80::getMemoryBytes(uint16_t z80Address) {
+	uint32_t realAddress;
+	switch (z80Address & 0xC000) {
+	// SLOT 0
+	case 0x0000:
+		// slot 0 always points to internal memory
+		// map to the proper page
+		if (bm.bankSelect[0] < NUMBER_OF_ROM_PAGES) {
+			realAddress = (bm.bankSelect[0] << 14) | (z80Address & 0x3FFF);
+			return &systemRom[realAddress];
+		}
+		else {
+			realAddress = ((bm.bankSelect[0] - NUMBER_OF_ROM_PAGES) << 14) | (z80Address & 0x3FFF);
+			return &systemRam[realAddress];
+		}
+		break;
+	// SLOT 1
+	case 0x4000:
+		switch (bm.memorySourceSelect.S1MSS) {
+		case 0: // Internal Memory
+			if (bm.bankSelect[1] < NUMBER_OF_ROM_PAGES) {
+				realAddress = (bm.bankSelect[1] << 14) | (z80Address & 0x3FFF);
+				return &systemRom[realAddress];
+			}
+			else {
+				realAddress = ((bm.bankSelect[1] - NUMBER_OF_ROM_PAGES) << 14) | (z80Address & 0x3FFF);
+				return &systemRam[realAddress];
+			}
+			break;
+		}
+		break;
+	// SLOT 2
+	case 0x8000:
+		switch (bm.memorySourceSelect.S2MSS) {
+		case 0: // Internal Memory
+			if (bm.bankSelect[2] < NUMBER_OF_ROM_PAGES) {
+				realAddress = (bm.bankSelect[2] << 14) | (z80Address & 0x3FFF);
+				return &systemRom[realAddress];
+			}
+			else {
+				realAddress = ((bm.bankSelect[2] - NUMBER_OF_ROM_PAGES) << 14) | (z80Address & 0x3FFF);
+				return &systemRam[realAddress];
+			}
+			break;
+		}
+		break;
+	// SLOT 2
+	case 0xC000:
+		switch (bm.memorySourceSelect.S3MSS) {
+		case 0: // Internal Memory
+			if (bm.bankSelect[3] < NUMBER_OF_ROM_PAGES) {
+				realAddress = (bm.bankSelect[3] << 14) | (z80Address & 0x3FFF);
+				return &systemRom[realAddress];
+			}
+			else {
+				realAddress = ((bm.bankSelect[3] - NUMBER_OF_ROM_PAGES) << 14) | (z80Address & 0x3FFF);
+				return &systemRam[realAddress];
+			}
+			break;
+		}
+		break;
+	}
+}
+
 olc::Sprite& ByteMaster80::GetScreen() {
 	static auto gen = std::bind(std::uniform_int_distribution<>(0, 1), std::default_random_engine());
 	for (int y = 0; y < 240; y++) {

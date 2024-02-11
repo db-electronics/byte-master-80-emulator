@@ -86,6 +86,14 @@ private:
 		DrawString(x + 112, y + 90, "T: " + std::to_string(instrCycles));
 	}
 
+	void DrawCode(int x, int y) {
+		// get the current PC, figure out which memory bank 
+		// draw the 10 instructions
+		uint16_t pc = bm80.z80.registers.pc.pair;
+
+
+	}
+
 public:
 	bool OnUserCreate() override
 	{

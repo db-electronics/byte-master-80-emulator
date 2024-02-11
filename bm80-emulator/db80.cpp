@@ -25,14 +25,22 @@ db80::db80() {
 	opTbl[0x0E] = { "ld c, n", 2, 7 };
 	opTbl[0x0F] = { "rrca", 1, 4 };
 
+	// 0x10
 	opTbl[0x10] = { " djnz", 2, 13, 8 };
 	opTbl[0x11] = { "ld de, nn", 3, 10 };
 
+	opTbl[0x13] = { "inc de", 1, 6 };
+
 	opTbl[0x18] = { "jr d", 2, 12 };
 
+	// 0x20
 	opTbl[0x21] = { "ld hl, nn", 3, 10 };
 
+	opTbl[0x23] = { "inc hl", 1, 6 };
+
+	// 0x30
 	opTbl[0x31] = { "ld sp, nn", 3, 10 };
+	opTbl[0x33] = { "inc sp", 1, 6 };
 
 	opTbl[0x3C] = { "inc a", 1, 4 };
 
@@ -193,7 +201,7 @@ bool db80::tick(uint32_t cycles) {
 	case Z_MEMORY_READ_EXT:
 		switch (cpu.tState) {
 		case 1:
-			AddrPins = registers.pc.pair++;
+			AddrPins = (*registers.addrSource)++;
 			CtrlPins.word |= (MREQ | RD);
 			return false;
 		case 2:
@@ -203,7 +211,7 @@ bool db80::tick(uint32_t cycles) {
 		case 3:
 			return false;
 		case 4:
-			AddrPins = registers.pc.pair++;
+			AddrPins = (*registers.addrSource)++;
 			CtrlPins.word |= (MREQ | RD);
 			return false;
 		case 5:
@@ -212,33 +220,6 @@ bool db80::tick(uint32_t cycles) {
 			return false;
 		case 6:
  			*registers.regPairDest = registers.wz.pair;
-			break; // instruction complete
-		default:
-			return false;
-		}
-		break;
-	case Z_MEMORY_READ_SP_EXT:
-		switch (cpu.tState) {
-		case 1:
-			AddrPins = (*registers.addrSource)++;
-			CtrlPins.word |= (MREQ | RD);
-			return false;
-		case 2:
-			registers.wz.z = DataPins;
-			CtrlPins.word &= ~(MREQ | RD);
-			return false;
-		case 3:
-			return false;
-		case 4:
-			AddrPins = (*registers.addrSource)++;
-			CtrlPins.word |= (MREQ | RD);
-			return false;
-		case 5:
-			registers.wz.w = DataPins;
-			CtrlPins.word &= ~(MREQ | RD);
-			return false;
-		case 6:
-			*registers.regPairDest = registers.wz.pair;
 			break; // instruction complete
 		default:
 			return false;
@@ -401,8 +382,21 @@ inline bool db80::decodeAndExecute(void) {
 		cpu.state = Z_MEMORY_WRITE;
 		return false; // 3 cycles left
 
+	// 16 bit inc group Z80UM p 184
 	case 0x03: // inc bc (6)
-		registers.bc.pair++;	// I know this only happens later, but meh this is still externally cycle accurate
+		registers.bc.pair++;
+		cpu.state = Z_M1_EXT;
+		return false; // 2 cycles left
+	case 0x13: // inc de (6)
+		registers.de.pair++;
+		cpu.state = Z_M1_EXT;
+		return false; // 2 cycles left
+	case 0x23: // inc hl (6)
+		registers.hl.pair++;
+		cpu.state = Z_M1_EXT;
+		return false; // 2 cycles left
+	case 0x33: // inc sp (6)
+		registers.sp.pair++;
 		cpu.state = Z_M1_EXT;
 		return false; // 2 cycles left
 
@@ -486,12 +480,13 @@ inline bool db80::decodeAndExecute(void) {
 	case 0xC9: // ret (4,3,3) -> Z_OPCODE_FETCH + Z_MEMORY_READ_EXT
 		registers.regPairDest = &registers.pc.pair;
 		registers.addrSource = &registers.sp.pair;
-		cpu.state = Z_MEMORY_READ_SP_EXT;
+		cpu.state = Z_MEMORY_READ_EXT;
 		return false; // 6 cycles left
 
-	case 0xCD: // call nn (4,3,4,3,3) -> Z_OPCODE_FETCH + Z_PUSH_PC + Z_MEMORY_READ_SP_EXT
+	case 0xCD: // call nn (4,3,4,3,3) -> Z_OPCODE_FETCH + Z_PUSH_PC + Z_MEMORY_READ_EXT
 		registers.pushOffset = 2; // return address is at pc + 2, we already incremented pc after opcode fetch
 		registers.regPairDest = &registers.pc.pair;
+		registers.addrSource = &registers.pc.pair;
 		cpu.state = Z_PUSH_PC;
 		cpu.nextState = Z_MEMORY_READ_EXT;
 		return false; // 13 cycles left
