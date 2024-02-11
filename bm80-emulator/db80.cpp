@@ -5,6 +5,44 @@
 
 db80::db80() {
 	reset();
+
+	// Main opcode table for dissassembly
+	//    opc   = { "mnemonic", bytes, cycles, altCycles }
+	opTbl[0x00] = { "nop", 1, 4 };
+	opTbl[0x01] = { "ld bc, nn", 3, 10 };
+	opTbl[0x02] = { "ld (bc), a", 1, 7 };
+	opTbl[0x03] = { "inc bc", 1, 6 };
+	opTbl[0x04] = { "inc b", 1,  4 };
+	opTbl[0x05] = { "dec b", 1, 4 };
+	opTbl[0x06] = { "ld b, n", 2, 7 };
+	opTbl[0x07] = { "rlca", 1, 4 };
+	opTbl[0x08] = { "ex af, af`", 1, 4 };
+	opTbl[0x09] = { "add hl, bc", 1, 11 };
+	opTbl[0x0A] = { "ld a, (bc)", 1, 7 };
+	opTbl[0x0B] = { "dec bc", 1, 6 };
+	opTbl[0x0C] = { "inc c", 1, 4 };
+	opTbl[0x0D] = { "dec c", 1, 4 };
+	opTbl[0x0E] = { "ld c, n", 2, 7 };
+	opTbl[0x0F] = { "rrca", 1, 4 };
+
+	opTbl[0x10] = { " djnz", 2, 13, 8 };
+	opTbl[0x11] = { "ld de, nn", 3, 10 };
+
+	opTbl[0x18] = { "jr d", 2, 12 };
+
+	opTbl[0x21] = { "ld hl, nn", 3, 10 };
+
+	opTbl[0x31] = { "ld sp, nn", 3, 10 };
+
+	opTbl[0x3C] = { "inc a", 1, 4 };
+
+	opTbl[0x3E] = { "ld a, n", 2, 7 };
+
+	opTbl[0xC9] = { "ret", 1, 10 };
+	opTbl[0xCD] = { "call nn", 3, 17 };
+
+	opTbl[0xD3] = { "out (n), a", 2, 11 };
+	opTbl[0xF3] = { "di", 1, 4 };
 }
 
 db80::~db80() {
@@ -13,6 +51,7 @@ db80::~db80() {
 
 void db80::reset() {
 	cpu.state = Z_OPCODE_FETCH;
+	cpu.prefix = 0;
 	cpu.tState = 0;
 	registers.intMode = Z_MODE_0;
 	registers.iff1 = 0;
@@ -25,9 +64,17 @@ void db80::reset() {
 	DataPins = 0xFF;
 }
 
+db80::Z_OPCODE db80::getInstruction() {
+	return getInstruction(registers.instructionReg);
+}
+
+db80::Z_OPCODE db80::getInstruction(uint8_t op) {
+	return opTbl[op];
+}
+
 void db80::trace() {
 	printf("c %d : t %d : pc 0x%.4X : ir 0x%.2X %-10s : addr 0x%.4X : data 0x%.2X : a 0x%.2X : f 0x%.2X : bc 0x%.4X : de 0x%.4X : hl 0x%.4X \n", 
-		registers.ticks, cpu.tState, registers.pc.pair, registers.instructionReg, getInstruction(), AddrPins, DataPins, registers.af.a, registers.af.f.byte, registers.bc.pair, registers.de.pair, registers.hl.pair);
+		registers.ticks, cpu.tState, registers.pc.pair, registers.instructionReg, getInstruction().mnemonic, AddrPins, DataPins, registers.af.a, registers.af.f.byte, registers.bc.pair, registers.de.pair, registers.hl.pair);
 }
 
 /// <summary>
@@ -543,74 +590,4 @@ inline void db80::addRegPair(uint16_t& dest, uint16_t& src) {
 		Z_CF & (res >> 16);					// set if carry from bit 15
 
 	dest = (uint16_t)res;
-}
-
-const char* db80::getInstruction() {
-	return getInstruction(registers.instructionReg);
-}
-
-const char* db80::getInstruction(uint8_t op) {
-	switch (op) {
-	case 0x00:
-		return "nop";
-
-	// 16 bit load group
-	case 0x01:
-		return "ld bc, nn";
-	case 0x11:
-		return "ld de, nn";
-	case 0x21:
-		return "ld hl, nn";
-	case 0x31:
-		return "ld sp, nn";
-	
-	case 0x02:
-		return "ld (bc), a";
-	case 0x03:
-		return "inc bc";
-	case 0x04:
-		return "inc b";
-	case 0x05:
-		return "dec b";
-	case 0x06:
-		return "ld b, n";
-	case 0x07:
-		return "rlca";
-	case 0x08:
-		return "ex af, af`";
-	case 0x09:
-		return "add hl ,bc";
-	case 0x0A:
-		return "ld a, (bc)";
-	case 0x0B:
-		return "dec bc";
-	case 0x0C:
-		return "inc c";
-	case 0x0D:
-		return "dec c";
-	case 0x0E:
-		return "ld c, n";
-	case 0x0F:
-		return "rrca";
-
-	case 0x18:
-		return "jr d";
-
-	case 0x3E:
-		return "ld a,n";
-	case 0x3C:
-		return "inc a";
-
-	case 0xC9:
-		return "ret";
-	case 0xCD:
-		return "call nn";
-
-	case 0xD3:
-		return "out (n), a";
-	case 0xF3:
-		return "di";
-	default:
-		return "n/a";
-	}
 }

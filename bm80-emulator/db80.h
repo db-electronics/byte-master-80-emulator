@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <map>
 
 class db80
 {
@@ -64,8 +65,18 @@ public:
 	/// <returns></returns>
 	bool instructionComplete();
 
-	const char* getInstruction();
-	const char* getInstruction(uint8_t op);
+	//const char* getInstruction();
+	//const char* getInstruction(uint8_t op);
+
+	struct Z_OPCODE {
+		const char* mnemonic;	// mnemonic with placeholder values i.e. ld bc, nn
+		int size;				// size in bytes
+		int cycles;				// t states 
+		int altCycles = 0;		// t states alternate, i.e. branch
+	};
+
+	Z_OPCODE getInstruction();
+	Z_OPCODE getInstruction(uint8_t);
 
 	enum Z_FLAGS {
 		Z_CF  = (1 << 0), // carry
@@ -185,6 +196,7 @@ private:
 		Z_MACHINE_CYCLE state;
 		Z_MACHINE_CYCLE nextState;
 		uint8_t tState;
+		uint8_t prefix;
 	}cpu;
 
 	const uint8_t RST_STATE_LENGTH = 3;
@@ -197,6 +209,9 @@ private:
 	void rlca();
 	void rrca();
 	void addRegPair(uint16_t& dest, uint16_t& src);
+
+	std::map<uint8_t, Z_OPCODE> opTbl;
+
 
 	// thanks to https://github.com/redcode/Z80/blob/master/sources/Z80.c for parity lookup
 	const uint8_t parityLookup[256] = {

@@ -82,9 +82,8 @@ private:
 		DrawString(x + 136, y + 80, "1", bm80.z80.registers.iff1 ? olc::GREEN : olc::RED);
 		DrawString(x + 144, y + 80, "2", bm80.z80.registers.iff2 ? olc::GREEN : olc::RED);
 
-		DrawString(x, y + 90, bm80.z80.getInstruction(), olc::WHITE);
+		DrawString(x, y + 90, bm80.z80.getInstruction().mnemonic, olc::WHITE);
 		DrawString(x + 112, y + 90, "T: " + std::to_string(instrCycles));
-
 	}
 
 public:
