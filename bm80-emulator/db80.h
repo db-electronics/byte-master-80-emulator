@@ -66,6 +66,7 @@ public:
 
 	const char* getInstruction();
 	const char* getInstruction(uint8_t op);
+	const std::tuple<const char*, int, int> getInstrInfo(uint8_t);
 
 	enum Z_FLAGS {
 		Z_CF  = (1 << 0), // carry

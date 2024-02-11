@@ -617,3 +617,20 @@ const char* db80::getInstruction(uint8_t op) {
 		return "n/a";
 	}
 }
+
+const std::tuple<const char*, int, int> db80::getInstrInfo(uint8_t op) {
+	switch (op) {
+	case 0x00:
+		return {"nop", 1, 4 };
+
+		// 16 bit load group
+	case 0x01:
+		return {"ld bc, nn", 3, 10};
+	case 0x11:
+		return {"ld de, nn", 3, 10};
+	case 0x21:
+		return {"ld hl, nn", 3, 10};
+	case 0x31:
+		return {"ld sp, nn", 3, 10};
+	}
+}
