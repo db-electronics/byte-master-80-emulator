@@ -220,7 +220,7 @@ bool db80::tick(uint32_t cycles) {
 	case Z_MEMORY_READ_SP_EXT:
 		switch (cpu.tState) {
 		case 1:
-			AddrPins = registers.sp.pair++;
+			AddrPins = (*registers.addrSource)++;
 			CtrlPins.word |= (MREQ | RD);
 			return false;
 		case 2:
@@ -230,7 +230,7 @@ bool db80::tick(uint32_t cycles) {
 		case 3:
 			return false;
 		case 4:
-			AddrPins = registers.sp.pair++;
+			AddrPins = (*registers.addrSource)++;
 			CtrlPins.word |= (MREQ | RD);
 			return false;
 		case 5:
@@ -342,6 +342,7 @@ bool db80::tick(uint32_t cycles) {
 	// NMI has higher priority
 	cpu.tState = 0;
 	cpu.state = Z_OPCODE_FETCH;
+	cpu.prefix = 0;
 
 	if (CtrlPins.NMI) {
 		cpu.nextState = Z_NMI;
@@ -375,18 +376,22 @@ inline bool db80::decodeAndExecute(void) {
 	// 0b00ss0001
 	case 0x01: // ld bc, nn (4,3,3)
 		registers.regPairDest = &registers.bc.pair;
+		registers.addrSource = &registers.pc.pair;
 		cpu.state = Z_MEMORY_READ_EXT;
 		return false; // 3,3 cycles left
 	case 0x11: // ld de, nn (4,3,3)
 		registers.regPairDest = &registers.de.pair;
+		registers.addrSource = &registers.pc.pair;
 		cpu.state = Z_MEMORY_READ_EXT;
 		return false; // 3,3 cycles left
 	case 0x21: // ld hl, nn (4,3,3)
 		registers.regPairDest = &registers.hl.pair;
+		registers.addrSource = &registers.pc.pair;
 		cpu.state = Z_MEMORY_READ_EXT;
 		return false; // 3,3 cycles left
 	case 0x31: // ld sp, nn (4,3,3)
 		registers.regPairDest = &registers.sp.pair;
+		registers.addrSource = &registers.pc.pair;
 		cpu.state = Z_MEMORY_READ_EXT;
 		return false; // 3,3 cycles left
 
@@ -411,6 +416,7 @@ inline bool db80::decodeAndExecute(void) {
 
 	case 0x06: // ld b,n (4,3)
 		registers.regDest = &registers.bc.b;
+		registers.addrSource = &registers.pc.pair;
 		cpu.state = Z_MEMORY_READ;
 		return false; // 3 cycles left
 
@@ -479,6 +485,7 @@ inline bool db80::decodeAndExecute(void) {
 
 	case 0xC9: // ret (4,3,3) -> Z_OPCODE_FETCH + Z_MEMORY_READ_EXT
 		registers.regPairDest = &registers.pc.pair;
+		registers.addrSource = &registers.sp.pair;
 		cpu.state = Z_MEMORY_READ_SP_EXT;
 		return false; // 6 cycles left
 

@@ -15,6 +15,7 @@ public:
 	uint16_t AddrPins;
 	uint8_t DataPins;
 
+	// ensure this enum lines up with the bit order in CtrlPins
 	enum PINS {
 		RST    = (1 << 0),
 		MREQ   = (1 << 1),
@@ -118,8 +119,9 @@ public:
 	// z80 registers
 	struct Z_REGISTERS {
 		uint32_t ticks, tmp32;
-		uint8_t* regDest;
-		uint16_t* regPairDest;
+		uint8_t *regDest;
+		uint16_t *regPairDest;
+		uint16_t *addrSource;
 		uint16_t pushOffset;
 		uint8_t tmp, instructionReg, dataBuffer;
 		Z_INTERRUPT_MODE intMode;
