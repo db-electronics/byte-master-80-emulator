@@ -512,24 +512,31 @@ inline bool db80::decodeAndExecute(void) {
 }
 
 // ACUMMULATOR Functions
+
+// FLAG HELPER MACROS
+// -------------------------------------------------------
+// | Bit  | 7  |  6  |  5  |  4  |  3  |  2  |  1  |  0  |
+// -------------------------------------------------------
+// | Flag | S  |  Z  |  x  |  H  |  y  | P/V |  N  |  C  |
+// -------------------------------------------------------
+// S is set if result is negative, reset otherwise
+// Z is set if result is zero, reset otherwise
+#define _SZ_FLAGS(val) Z_SF & (val & 0x80) | Z_ZF & (val == 0 ? Z_ZF : 0)
+
+// S is set if result is negative, reset otherwise
+// Z is set if result is zero, reset otherwise
+// H is set if carry from bit 3 or borrow from bit 4
+#define _SZH_FLAGS(val) Z_SF & (val & 0x80) | Z_ZF & (val == 0 ? Z_ZF : 0) | Z_HF & (res ^ reg)
+
 // Z80UM p 164
 inline void db80::decReg(uint8_t& reg) {
 	// the dec instruction does not set the carry flag
 	uint8_t res = reg - 1;
-	//registers.af.f.S = (reg & 0x80) ? 1 : 0;			// set if result is negative
-	//registers.af.f.Z = (reg == 0x00) ? 1 : 0;			// set if result is zero
-	//registers.af.f.PV = (reg == 0x7F) ? 1 : 0;			// set if result was 0x80 before operation
-	//registers.af.f.H = (reg ^ registers.tmp) & H ? 1 : 0;	// set if borrow from bit 4 (i.e. is bit 4 different after?)
-	//registers.af.f.N = 1;								// is set
 	
-	// this is at least 4 times less asm than the above
-	registers.af.f.byte =
-		Z_SF & (res & 0x80) |		// set if result is negative
-		Z_ZF & (res == 0 ? Z_SF : 0) |			// set if result is zero
-		Z_PVF & (reg == 0x80 ? Z_PVF : 0) |		// set if register was 0x80 before operation
-		Z_HF & (res ^ reg) |		// set if borrow from bit 4 (i.e. is bit 4 different after?)
-		Z_NF |						// is set
-		registers.af.f.Carry;		// C is unaffected
+	registers.af.f.byte = _SZH_FLAGS(res) |		
+		Z_PVF & (reg == 0x80 ? Z_PVF : 0) |		// P/V is set if register was 0x80 before operation
+		Z_NF |									// N is set
+		registers.af.f.Carry;					// C is unaffected
 
 	reg = res;
 }
@@ -539,26 +546,24 @@ inline void db80::incReg(uint8_t& reg) {
 	// the inc instruction does not set the carry flag
 	uint8_t res = reg + 1;
 
-	registers.af.f.byte =
-		Z_SF & (res & 0x80) |		// set if result is negative
-		Z_ZF & (res == 0 ? Z_SF : 0) |		// set if result is zero
-		Z_PVF & (reg == 0x7F) |		// set if register was 0x7F before operation
-		Z_HF & (res ^ reg) |		// set if carry from bit 3 (i.e. is bit 4 different after?)
-									// N is reset
-		registers.af.f.Carry;		// C is unaffected
+	registers.af.f.byte = _SZH_FLAGS(res) |		
+		Z_PVF & (reg == 0x7F ? Z_PVF : 0) |		// P/V is set if register was 0x7F before operation
+												// N is reset
+		registers.af.f.Carry;					// C is unaffected
 
 	reg = res;
 }
 
+
 // Z80UM p 190
 inline void db80::rlca() {
 	uint8_t res = (registers.af.a << 1) + (registers.af.f.byte & Z_CF);	// shift left, add carry
-	uint8_t flg = registers.af.f.byte & (Z_SF | Z_CF | Z_PVF); // S, Z, PV are not affected
+	uint8_t flg = registers.af.f.byte & (Z_SF | Z_ZF | Z_PVF); // S, Z, PV are not affected
 	
 	registers.af.f.byte =
 		flg |							// S, Z, PV are not affected
 										// H and N are reset
-		Z_CF & (registers.af.a & 0x80); // Carry is data from bit 7 of accumulator
+		Z_CF & (registers.af.a >> 7);	// Carry is data from bit 7 of accumulator
 	
 	registers.af.a = res;
 }
@@ -567,12 +572,12 @@ inline void db80::rlca() {
 inline void db80::rrca() {
 	// bit 0 is copied to the carry flag and also to bit 7
 	uint8_t res = (registers.af.a >> 1) + (registers.af.a << 7);	// shift right, bit 0 to bit 7
-	uint8_t flg = registers.af.f.byte & (Z_SF | Z_CF | Z_PVF); // S, Z, PV are not affected
+	uint8_t flg = registers.af.f.byte & (Z_SF | Z_ZF | Z_PVF); // S, Z, PV are not affected
 
 	registers.af.f.byte =
 		flg |							// S, Z, PV are not affected
 		// H and N are reset
-		Z_CF & (registers.af.a & 0x80); // Carry is data from bit 7 of accumulator
+		Z_CF & registers.af.a;			// Carry is data from bit 0 of accumulator
 
 	registers.af.a = res;
 }
@@ -581,10 +586,8 @@ inline void db80::rrca() {
 inline void db80::addRegPair(uint16_t& dest, uint16_t& src) {
 	uint32_t res = dest + src;
 	//registers.af.f.byte = S & (res & 0x8000) | Z & (res == 0) | PV & (res > 0xFFFF) | C & (res>>16);
-	registers.af.f.byte =
-		Z_SF & (res & 0x80) |				// set if result is negative
-		Z_ZF & (res == 0) |					// set if result is zero
-		Z_PVF & (res > 0xFFFF) |			// set if overflow
+	registers.af.f.byte = _SZ_FLAGS(res) |
+		Z_PVF & (res > 0xFFFF ? Z_PVF : 0) |			// set if overflow
 		Z_HF & ((res ^ dest ^ src) >> 8) |	// set if carry from bit 11
 											// N is reset
 		Z_CF & (res >> 16);					// set if carry from bit 15
