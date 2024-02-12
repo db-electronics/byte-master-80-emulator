@@ -45,7 +45,6 @@ private:
 
 	void DrawCpu(int x, int y, uint32_t instrCycles) {
 
-
 		DrawString(x, y, "Z80 Registers", olc::GREY);
 		
 		// main registers
@@ -82,8 +81,16 @@ private:
 		DrawString(x + 136, y + 80, "1", bm80.z80.registers.iff1 ? olc::GREEN : olc::RED);
 		DrawString(x + 144, y + 80, "2", bm80.z80.registers.iff2 ? olc::GREEN : olc::RED);
 
-		DrawString(x, y + 90, bm80.z80.getInstruction().mnemonic, olc::WHITE);
-		DrawString(x + 112, y + 90, "T: " + std::to_string(instrCycles));
+		auto opc = bm80.z80.getInstruction();
+		DrawString(x, y + 90, opc.mnemonic, olc::WHITE);
+		if (opc.cycles == instrCycles) {
+			DrawString(x + 112, y + 90, "T: " + std::to_string(instrCycles), olc::GREEN);
+		}
+		else {
+			DrawString(x + 112, y + 90, "T: " + std::to_string(instrCycles), olc::RED);
+			DrawString(x + 120, y + 90, " (" + std::to_string(opc.cycles) + ")", olc::GREY);
+		}
+		
 	}
 
 	void DrawCode(int x, int y) {
@@ -187,7 +194,7 @@ public:
 		DrawCpu(330, 2, instructionCycles);
 		DrawCode(330, 112);
 		DrawSprite(0, 0, &bm80.GetScreen(), 1);
-		DrawString(240, 370, "SPACE = Step Clock", olc::WHITE);
+		DrawString(240, 370, "F10 = Step Instruction, F11 = Step Clock", olc::WHITE);
 
 		return true;
 	}

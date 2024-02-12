@@ -98,10 +98,11 @@ uint8_t* ByteMaster80::getMemoryBytes(uint16_t z80Address) {
 }
 
 olc::Sprite& ByteMaster80::GetScreen() {
-	static auto gen = std::bind(std::uniform_int_distribution<>(0, 1), std::default_random_engine());
+	//static auto gen = std::bind(std::uniform_int_distribution<>(0, 1), std::default_random_engine());
 	for (int y = 0; y < 240; y++) {
 		for (int x = 0; x < 320; x++) {
-			_screen->SetPixel(x, y, (bool)gen() ? olc::BLACK : olc::GREY);
+			//_screen->SetPixel(x, y, (bool)gen() ? olc::BLACK : olc::GREY);
+			_screen->SetPixel(x, y, olc::BLACK );
 		}
 	}
 	return *_screen;

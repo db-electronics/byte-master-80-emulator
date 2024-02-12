@@ -209,7 +209,7 @@ private:
 	void incReg(uint8_t& reg);
 	void rlca();
 	void rrca();
-	void addRegPair(uint16_t& dest, uint16_t& src);
+	void addRegPair(uint16_t& src);
 
 	std::map<uint8_t, Z_OPCODE> opTbl;
 

@@ -32,23 +32,36 @@ db80::db80() {
 	opTbl[0x13] = { "inc de", 1, 6 };
 
 	opTbl[0x18] = { "jr d", 2, 12 };
+	opTbl[0x19] = { "add hl, de", 1, 11 };
+
+	opTbl[0x1B] = { "dec de", 1, 6 };
+
 
 	// 0x20
 	opTbl[0x21] = { "ld hl, nn", 3, 10 };
 
 	opTbl[0x23] = { "inc hl", 1, 6 };
 
+	opTbl[0x29] = { "add hl, de", 1, 11 };
+
+	opTbl[0x2B] = { "dec hl", 1, 6 };
+
 	// 0x30
 	opTbl[0x31] = { "ld sp, nn", 3, 10 };
 	opTbl[0x33] = { "inc sp", 1, 6 };
 
+	opTbl[0x39] = { "add hl, hl", 1, 11 };
+
+	opTbl[0x3B] = { "dec sp", 1, 6 };
 	opTbl[0x3C] = { "inc a", 1, 4 };
 
 	opTbl[0x3E] = { "ld a, n", 2, 7 };
 
+	// 0xC0
 	opTbl[0xC9] = { "ret", 1, 10 };
 	opTbl[0xCD] = { "call nn", 3, 17 };
 
+	// 0xD0
 	opTbl[0xD3] = { "out (n), a", 2, 11 };
 	opTbl[0xF3] = { "di", 1, 4 };
 }
@@ -423,8 +436,21 @@ inline bool db80::decodeAndExecute(void) {
 		std::swap(registers.af.f.byte, registers.afp.f.byte);
 		break; // instruction complete
 
+	// 16 bit add group Z80UM p 179
 	case 0x09: // add hl,bc (4,4,3)
-		addRegPair(registers.hl.pair, registers.bc.pair);
+		addRegPair(registers.bc.pair);
+		cpu.state = Z_16BIT_ADD;
+		return false; // 7 cycles left
+	case 0x19: // add hl,de (4,4,3)
+		addRegPair(registers.de.pair);
+		cpu.state = Z_16BIT_ADD;
+		return false; // 7 cycles left
+	case 0x29: // add hl,hl (4,4,3)
+		addRegPair(registers.hl.pair);
+		cpu.state = Z_16BIT_ADD;
+		return false; // 7 cycles left
+	case 0x39: // add hl,sp (4,4,3)
+		addRegPair(registers.sp.pair);
 		cpu.state = Z_16BIT_ADD;
 		return false; // 7 cycles left
 
@@ -434,8 +460,21 @@ inline bool db80::decodeAndExecute(void) {
 		cpu.state = Z_MEMORY_READ_IND;
 		return false; // 3 cycles left
 
+	// 16 bit dec group Z80UM p 187
 	case 0x0B: // dec bc (6)
 		registers.bc.pair--;	// I know this only happens later, but meh this is still externally cycle accurate
+		cpu.state = Z_M1_EXT;
+		return false; // 2 cycles left
+	case 0x1B: // dec de (6)
+		registers.de.pair--;
+		cpu.state = Z_M1_EXT;
+		return false; // 2 cycles left
+	case 0x2B: // dec hl (6)
+		registers.hl.pair--;
+		cpu.state = Z_M1_EXT;
+		return false; // 2 cycles left
+	case 0x3B: // dec sp (6)
+		registers.sp.pair--;
 		cpu.state = Z_M1_EXT;
 		return false; // 2 cycles left
 
@@ -585,14 +624,14 @@ inline void db80::rrca() {
 }
 
 // Z80UM p 180
-inline void db80::addRegPair(uint16_t& dest, uint16_t& src) {
-	uint32_t res = dest + src;
+inline void db80::addRegPair(uint16_t& src) {
+	uint32_t res = registers.hl.pair + src;
 	//registers.af.f.byte = S & (res & 0x8000) | Z & (res == 0) | PV & (res > 0xFFFF) | C & (res>>16);
 	registers.af.f.byte = _SZ_FLAGS(res) |
 		Z_PVF & (res > 0xFFFF ? Z_PVF : 0) |			// set if overflow
-		Z_HF & ((res ^ dest ^ src) >> 8) |	// set if carry from bit 11
+		Z_HF & ((res ^ registers.hl.pair ^ src) >> 8) |	// set if carry from bit 11
 											// N is reset
 		Z_CF & (res >> 16);					// set if carry from bit 15
 
-	dest = (uint16_t)res;
+	registers.hl.pair = (uint16_t)res;
 }
