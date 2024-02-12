@@ -41,6 +41,7 @@ uint8_t* ByteMaster80::getMemoryBytes(uint16_t z80Address) {
 		// map to the proper page
 		if (bm.bankSelect[0] < NUMBER_OF_ROM_PAGES) {
 			realAddress = (bm.bankSelect[0] << 14) | (z80Address & 0x3FFF);
+			// kinda very unsafe - TODO something better here and everywhere else in this function
 			return &systemRom[realAddress];
 		}
 		else {

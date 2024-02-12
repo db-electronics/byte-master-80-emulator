@@ -71,8 +71,8 @@ public:
 
 	struct Z_OPCODE {
 		const char* mnemonic;	// mnemonic with placeholder values i.e. ld bc, nn
-		int size;				// size in bytes
-		int cycles;				// t states 
+		int size = 0;			// size in bytes
+		int cycles = 0;			// t states 
 		int altCycles = 0;		// t states alternate, i.e. branch
 	};
 

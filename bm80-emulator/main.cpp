@@ -46,7 +46,7 @@ private:
 	void DrawCpu(int x, int y, uint32_t instrCycles) {
 
 
-		DrawString(x, y, "Z80", olc::WHITE);
+		DrawString(x, y, "Z80 Registers", olc::GREY);
 		
 		// main registers
 		DrawString(x, y + 10, "A : $" + hex(bm80.z80.registers.af.a, 2), olc::WHITE);
@@ -88,10 +88,49 @@ private:
 
 	void DrawCode(int x, int y) {
 		// get the current PC, figure out which memory bank 
-		// draw the 10 instructions
+		// draw the next 10 instructions
 		uint16_t pc = bm80.z80.registers.pc.pair;
 
+		olc::Pixel colour = olc::YELLOW;
 
+		int dataOffset = 50;
+		int opcodeOffset = 120;
+		int cyclesOffset = 240;
+
+		DrawString(x, y, "Addr", olc::GREY);
+		DrawString(x + dataOffset, y, "Data", olc::GREY);
+		DrawString(x + opcodeOffset, y, "Opcode", olc::GREY);
+		DrawString(x + cyclesOffset, y, "Cycles", olc::GREY);
+
+		for (int i = 1; i < 12; i++) {
+			uint8_t* memory = bm80.getMemoryBytes(pc);
+			
+			auto opc = bm80.z80.getInstruction(*memory);
+			int opSize = opc.size;
+
+			// unrecognized opc
+			if (opSize == 0) {
+				continue;
+			}
+
+			const char* opMnemonic = opc.mnemonic;
+
+			// show address
+			DrawString(x, y + (i * 10), "$" + hex(pc, 4) + ": ", colour);
+			
+			// show bytes
+			for (int b = 0; b < opSize; b++) {
+				DrawString(x + dataOffset + (b * 22), y + (i * 10), hex(*memory,2), colour);
+				memory++;
+			}
+
+			// show mnemonic
+			DrawString(x + opcodeOffset, y + (i * 10), opMnemonic, colour);
+			DrawString(x + cyclesOffset, y + (i * 10), std::to_string(opc.cycles), colour);
+
+			pc += opSize;
+			colour = olc::WHITE;
+		}
 	}
 
 public:
@@ -146,6 +185,7 @@ public:
 
 		Clear(olc::DARK_BLUE);
 		DrawCpu(330, 2, instructionCycles);
+		DrawCode(330, 112);
 		DrawSprite(0, 0, &bm80.GetScreen(), 1);
 		DrawString(240, 370, "SPACE = Step Clock", olc::WHITE);
 
