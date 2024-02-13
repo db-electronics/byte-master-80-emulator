@@ -94,16 +94,18 @@ public:
 		Z_RESET,
 		Z_OPCODE_FETCH,
 		Z_M1_EXT,
-		Z_MEMORY_READ,
 		Z_DJNZ,
-		Z_MEMORY_READ_IND,
-		Z_MEMORY_READ_EXT,
-		Z_MEMORY_WRITE,
+		Z_INC_TEMP,
+		Z_DEC_TEMP,
+		Z_MEMORY_READ,		// read memory at *registers.addrSource
+		Z_MEMORY_READ_PC,   // read memory at pc++
+		Z_MEMORY_READ_EXT,	// read memory at pc++ x2
+		Z_MEMORY_WRITE,		// write dataButter to *registers.addrSource
 		Z_JR,
 		Z_PUSH_PC,
 		Z_16BIT_ADD,
 		Z_IO_READ,
-		Z_IO_WRITE,
+		Z_IO_WRITE,			// write dataBuffer to wz
 		Z_INT_ACK,
 		Z_NMI,
 		Z_BUS_ACK
@@ -178,7 +180,7 @@ public:
 				uint8_t h;
 			};
 			uint16_t pair;
-		}hl, hlp, addrBuffer, pc, sp, ix, iy;
+		}hl, hlp, pc, sp, ix, iy;
 
 		union _WZ {
 			struct {
