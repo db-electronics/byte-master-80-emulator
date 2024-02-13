@@ -99,8 +99,9 @@ public:
 		Z_DEC_TEMP,
 		Z_MEMORY_READ,		// read memory at *registers.addrSource
 		Z_MEMORY_READ_PC,   // read memory at pc++
-		Z_MEMORY_READ_EXT,	// read memory at pc++ x2
-		Z_MEMORY_WRITE,		// write dataButter to *registers.addrSource
+		Z_MEMORY_READ_EXT,	// read memory extended at *registers.addrSource++ into wz
+		Z_MEMORY_WRITE,		// write dataBuffer to *registers.addrSource
+		Z_MEMORY_WRITE_EXT,	// write dataBuffer,dataBufferH to *registers.addrSource
 		Z_JR,				// jump relative
 		Z_PUSH_PC,
 		Z_16BIT_ADD,
@@ -123,8 +124,9 @@ public:
 		uint8_t *regDest;
 		uint16_t *regPairDest;
 		uint16_t *addrSource;
+		uint16_t *addrDest;
 		uint16_t pushOffset;
-		uint8_t tmp, instructionReg, dataBuffer;
+		uint8_t tmp, instructionReg;
 		Z_INTERRUPT_MODE intMode;
 		bool iff1, iff2;
 
@@ -180,7 +182,7 @@ public:
 				uint8_t h;
 			};
 			uint16_t pair;
-		}hl, hlp, pc, sp, ix, iy;
+		}hl, hlp, pc, sp, ix, iy, dataBuffer;
 
 		union _WZ {
 			struct {

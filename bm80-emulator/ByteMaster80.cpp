@@ -97,6 +97,7 @@ uint8_t* ByteMaster80::getMemoryBytes(uint16_t z80Address) {
 	default:
 		return nullptr;
 	}
+	return nullptr;
 }
 
 olc::Sprite& ByteMaster80::GetScreen() {

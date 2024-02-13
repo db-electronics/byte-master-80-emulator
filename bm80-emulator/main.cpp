@@ -31,11 +31,17 @@ public:
 
 private:
 
-	float fTargetFrameTime = 1.0f / 60.0f;
-	float fAccumulatedTime = 0.0f;
-	float systemClock = 8000000.0f;
+	float fTargetFrameTime = 1.0f / 60.0f;	// 60Hz
+	float fAccumulatedTime = 0.0f;			// time since last frame
+	float systemClock = 8000000.0f;			// 8MHz
 
-	std::string hex(uint32_t n, uint8_t d)
+	/// <summary>
+	/// Convert a number to a hex string
+	/// </summary>
+	/// <param name="n"></param>
+	/// <param name="d"></param>
+	/// <returns></returns>
+	std::string hex(uint32_t n, uint8_t d)	
 	{
 		std::string s(d, '0');
 		for (int i = d - 1; i >= 0; i--, n >>= 4)
@@ -43,6 +49,12 @@ private:
 		return s;
 	};
 
+	/// <summary>
+	/// Draw the CPU state to the screen
+	/// </summary>
+	/// <param name="x"></param>
+	/// <param name="y"></param>
+	/// <param name="instrCycles"></param>
 	void DrawCpu(int x, int y, uint32_t instrCycles) {
 
 		DrawString(x, y, "Z80 Registers", olc::GREY);
@@ -162,6 +174,7 @@ public:
 			inputLatch.inputs.SingleStep = 1;
 		}
 
+		// Timing
 		fAccumulatedTime += fElapsedTime;
 		if (fAccumulatedTime >= fTargetFrameTime)
 		{
