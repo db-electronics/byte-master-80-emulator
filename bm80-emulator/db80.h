@@ -101,7 +101,7 @@ public:
 		Z_MEMORY_READ_PC,   // read memory at pc++
 		Z_MEMORY_READ_EXT,	// read memory at pc++ x2
 		Z_MEMORY_WRITE,		// write dataButter to *registers.addrSource
-		Z_JR,
+		Z_JR,				// jump relative
 		Z_PUSH_PC,
 		Z_16BIT_ADD,
 		Z_IO_READ,
@@ -200,6 +200,7 @@ private:
 		Z_MACHINE_CYCLE nextState;
 		uint8_t tState;
 		uint8_t prefix;
+		bool takeJump;
 	}cpu;
 
 	const uint8_t RST_STATE_LENGTH = 3;
@@ -210,7 +211,9 @@ private:
 	void decReg(uint8_t& reg);
 	void incReg(uint8_t& reg);
 	void rlca();
+	void rla();
 	void rrca();
+	void rra();
 	void addRegPair(uint16_t& src);
 
 	std::map<uint8_t, Z_OPCODE> opTbl;

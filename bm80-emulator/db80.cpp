@@ -33,7 +33,7 @@ db80::db80() {
 	opTbl[0x14] = { "inc d", 1,  4 };
 	opTbl[0x15] = { "dec d", 1, 4 };
 	opTbl[0x16] = { "ld d, n", 2, 7 };
-
+	opTbl[0x16] = { "rla", 1, 4 };
 	opTbl[0x18] = { "jr d", 2, 12 };
 	opTbl[0x19] = { "add hl, de", 1, 11 };
 	opTbl[0x1A] = { "ld a, (de)", 1, 7 };
@@ -41,8 +41,10 @@ db80::db80() {
 	opTbl[0x1C] = { "inc e", 1, 4 };
 	opTbl[0x1D] = { "dec e", 1, 4 };
 	opTbl[0x1E] = { "ld e, n", 2, 7 };
+	opTbl[0x1F] = { "rra", 1, 4 };
 
 	// 0x20
+	opTbl[0x20] = { "jr nz, d", 2, 12, 7 };
 	opTbl[0x21] = { "ld hl, nn", 3, 10 };
 
 	opTbl[0x23] = { "inc hl", 1, 6 };
@@ -99,6 +101,7 @@ void db80::reset() {
 	cpu.state = Z_OPCODE_FETCH;
 	cpu.prefix = 0;
 	cpu.tState = 0;
+	cpu.takeJump = false;
 	registers.intMode = Z_MODE_0;
 	registers.iff1 = 0;
 	registers.iff2 = 0;
@@ -287,7 +290,7 @@ bool db80::tick(uint32_t cycles) {
 			return false;
 		}
 		break;
-	case Z_JR: // final machine cycle of JR takes 5 cycles
+	case Z_JR: // final machine cycle of JR * take 5 cycles
 		switch (cpu.tState) {
 		case 1: // this probably doesn't happen all in here, does it matter?
 			if (registers.tmp & 0x80) {
@@ -604,9 +607,20 @@ inline bool db80::decodeAndExecute(void) {
 		return false; // 3 cycles left
 
 
+	// rotate and shift group
 	case 0x07: // rlca (4)
 		rlca();
 		break; // instruction complete
+	case 0x17: // rla (4)
+		rla();
+		break; // instruction complete
+	case 0x0F: // rrca (4)
+		rrca();
+		break;	// insctruction complete
+	case 0x1F: // rra (4)
+		rra();
+		break;	// insctruction complete
+
 
 	case 0x08: // ex af,af' (4)
 		std::swap(registers.af.a, registers.afp.a);
@@ -664,15 +678,19 @@ inline bool db80::decodeAndExecute(void) {
 		return false; // 2 cycles left
 
 
-	case 0x0F: // rrca (4)
-		rrca();
-		break;	// insctruction complete
-
 	case 0x10: // djnz d ( b != 0 (5,3,5) / b == 0 (5,3) )
 		registers.regDest = &registers.tmp;
 		cpu.state = Z_MEMORY_READ_PC;
 		cpu.nextState = Z_DJNZ;
 		break; // 1+3 or 1+3+5 cycles left
+	case 0x20: // jr nz, d ( Z_ZF == 1 (4,3,5) / Z_ZF == 0 (4,3) )
+		registers.regDest = &registers.tmp;
+		cpu.state = Z_MEMORY_READ_PC;
+		if (registers.af.f.Zero) {
+			cpu.nextState = Z_JR;
+		}
+		break; // 3 or 3+5 cycles left
+
 
 	case 0x18: // JR d - 12 (4,3,5)
 		registers.regDest = &registers.tmp;
@@ -762,8 +780,10 @@ inline void db80::incReg(uint8_t& reg) {
 
 
 // Z80UM p 190
+// the contents of A are rotated left 1-bit position
+// bit 7 is copied to the carry flag and also to bit 0
 inline void db80::rlca() {
-	uint8_t res = (registers.af.a << 1) + (registers.af.f.byte & Z_CF);	// shift left, add carry
+	uint8_t res = (registers.af.a << 1) + (registers.af.a >> 7);	// shift left, add carry
 	uint8_t flg = registers.af.f.byte & (Z_SF | Z_ZF | Z_PVF); // S, Z, PV are not affected
 	
 	registers.af.f.byte =
@@ -774,10 +794,41 @@ inline void db80::rlca() {
 	registers.af.a = res;
 }
 
-// Z80UM p 190
+// Z80UM p 191
+// the contents of A are rotated left 1-bit position through the carry flag
+// the previous content of the carry flag is copied to bit 0
+inline void db80::rla() {
+	uint8_t res = (registers.af.a << 1) + (registers.af.f.Carry);	// shift left, add carry
+	uint8_t flg = registers.af.f.byte & (Z_SF | Z_ZF | Z_PVF); // S, Z, PV are not affected
+
+	registers.af.f.byte =
+		flg |							// S, Z, PV are not affected
+		// H and N are reset
+		Z_CF & (registers.af.a >> 7);	// Carry is data from bit 7 of accumulator
+
+	registers.af.a = res;
+}
+
+// Z80UM p 192
+// the contents of A are rotated right 1-bit
+// bit 0 is copied to the carry flag and also to bit 7
 inline void db80::rrca() {
-	// bit 0 is copied to the carry flag and also to bit 7
 	uint8_t res = (registers.af.a >> 1) + (registers.af.a << 7);	// shift right, bit 0 to bit 7
+	uint8_t flg = registers.af.f.byte & (Z_SF | Z_ZF | Z_PVF); // S, Z, PV are not affected
+
+	registers.af.f.byte =
+		flg |							// S, Z, PV are not affected
+		// H and N are reset
+		Z_CF & registers.af.a;			// Carry is data from bit 0 of accumulator
+
+	registers.af.a = res;
+}
+
+// Z80UM p 193
+// the contents of A are rotated right 1-bit through the carry flag
+// the previous content of the carry flag is copied to bit 7
+inline void db80::rra() {
+	uint8_t res = (registers.af.a >> 1) + ((registers.af.f.byte & Z_CF) << 7);	// shift right, bit 0 to bit 7
 	uint8_t flg = registers.af.f.byte & (Z_SF | Z_ZF | Z_PVF); // S, Z, PV are not affected
 
 	registers.af.f.byte =

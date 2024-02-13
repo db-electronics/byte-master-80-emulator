@@ -94,6 +94,8 @@ uint8_t* ByteMaster80::getMemoryBytes(uint16_t z80Address) {
 			break;
 		}
 		break;
+	default:
+		return nullptr;
 	}
 }
 
