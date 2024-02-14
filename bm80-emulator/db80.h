@@ -97,12 +97,12 @@ public:
 		Z_DJNZ,
 		Z_INC_TEMP,
 		Z_DEC_TEMP,
-		Z_MEMORY_READ,		// read memory at *registers.addrSource
-		Z_MEMORY_READ_PC,   // read memory at pc++
-		Z_MEMORY_READ_EXT,	// read memory extended at *registers.addrSource++ into wz
-		Z_MEMORY_WRITE,		// write dataBuffer to *registers.addrSource
-		Z_MEMORY_WRITE_EXT,	// write dataBuffer,dataBufferH to *registers.addrSource
-		Z_JR,				// jump relative
+		Z_MEMORY_READ,			// read memory at *registers.addrSource
+		Z_MEMORY_READ_PC,		// read memory at pc++
+		Z_MEMORY_READ_EXT,		// read memory extended at *registers.addrSource++ into wz
+		Z_MEMORY_WRITE,			// write dataBuffer to *registers.addrSource
+		Z_MEMORY_WRITE_EXT,		// write dataBuffer,dataBufferH to *registers.addrSource
+		Z_JR,					// jump relative
 		Z_PUSH_PC,
 		Z_16BIT_ADD,
 		Z_IO_READ,
@@ -182,7 +182,7 @@ public:
 				uint8_t h;
 			};
 			uint16_t pair;
-		}hl, hlp, pc, sp, ix, iy, dataBuffer;
+		}hl, hlp, pc, sp, ix, iy, readBuffer, writeBuffer;
 
 		union _WZ {
 			struct {
@@ -216,6 +216,7 @@ private:
 	void rla();
 	void rrca();
 	void rra();
+	void daa();
 	void addRegPair(uint16_t& src);
 
 	std::map<uint8_t, Z_OPCODE> opTbl;
