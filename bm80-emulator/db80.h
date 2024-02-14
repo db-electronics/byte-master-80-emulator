@@ -100,6 +100,7 @@ public:
 		Z_MEMORY_READ,			// read memory at *registers.addrSource
 		Z_MEMORY_READ_PC,		// read memory at pc++
 		Z_MEMORY_READ_EXT,		// read memory extended at *registers.addrSource++ into wz
+		Z_MEMORY_READ_EXT_IND,
 		Z_MEMORY_WRITE,			// write dataBuffer to *registers.addrSource
 		Z_MEMORY_WRITE_EXT,		// write dataBuffer,dataBufferH to *registers.addrSource
 		Z_JR,					// jump relative
@@ -197,12 +198,13 @@ public:
 
 private:
 
-	struct Z_CPU_STATE {
+	struct Z_CPU {
 		Z_MACHINE_CYCLE state;
-		Z_MACHINE_CYCLE nextState;
+		Z_MACHINE_CYCLE nextState[4];
+		uint8_t statePtr;
 		uint8_t tState;
 		uint8_t prefix;
-		bool takeJump;
+		//bool takeJump;
 	}cpu;
 
 	const uint8_t RST_STATE_LENGTH = 3;

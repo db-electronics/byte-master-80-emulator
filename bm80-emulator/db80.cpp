@@ -33,7 +33,7 @@ db80::db80() {
 	opTbl[0x14] = { "inc d", 1,  4 };
 	opTbl[0x15] = { "dec d", 1, 4 };
 	opTbl[0x16] = { "ld d, n", 2, 7 };
-	opTbl[0x16] = { "rla", 1, 4 };
+	opTbl[0x17] = { "rla", 1, 4 };
 	opTbl[0x18] = { "jr d", 2, 12 };
 	opTbl[0x19] = { "add hl, de", 1, 11 };
 	opTbl[0x1A] = { "ld a, (de)", 1, 7 };
@@ -100,9 +100,10 @@ db80::~db80() {
 
 void db80::reset() {
 	cpu.state = Z_OPCODE_FETCH;
-	cpu.prefix = 0;
+	cpu.statePtr = 0;
 	cpu.tState = 0;
-	cpu.takeJump = false;
+	cpu.prefix = 0x00;
+	//cpu.takeJump = false;
 	registers.intMode = Z_MODE_0;
 	registers.iff1 = 0;
 	registers.iff2 = 0;
@@ -158,6 +159,7 @@ bool db80::tick(uint32_t cycles) {
 	case Z_OPCODE_FETCH:
 		switch (cpu.tState) {
 		case 1:
+			cpu.statePtr = 0;
 			CtrlPins.word |= (MREQ | RD | M1);
 			AddrPins = registers.pc.pair++;
 			return false;
@@ -169,7 +171,7 @@ bool db80::tick(uint32_t cycles) {
 			CtrlPins.word |= (MREQ | RFSH);
 			AddrPins = registers.ir.pair;
 			registers.ir.r = (registers.ir.r & 0x80) | (++registers.ir.r & 0x7F);
-			cpu.nextState = Z_OPCODE_FETCH; // ensure this is default, instructions which need additional m cycles can change it
+			cpu.nextState[0] = Z_OPCODE_FETCH; // ensure this is default, instructions which need additional m cycles can change it
 			return false;
 		case 4:
 			CtrlPins.word &= ~(MREQ | RFSH);
@@ -199,8 +201,8 @@ bool db80::tick(uint32_t cycles) {
 			return false;
 		case 3:
 			cpu.tState = 0;
-			cpu.state = cpu.nextState;
-			if (cpu.nextState != Z_OPCODE_FETCH) // some instructions end here, other keep going
+			cpu.state = cpu.nextState[cpu.statePtr++];
+			if (cpu.state != Z_OPCODE_FETCH) // some instructions end here, other keep going
 				return false;
 			break; // else instruction is complete
 		default:
@@ -257,8 +259,8 @@ bool db80::tick(uint32_t cycles) {
 			return false;
 		case 3:
 			cpu.tState = 0;
-			cpu.state = cpu.nextState;
-			if (cpu.nextState != Z_OPCODE_FETCH) // some instructions end here, other keep going
+			cpu.state = cpu.nextState[cpu.statePtr++];
+			if (cpu.state != Z_OPCODE_FETCH) // some instructions end here, other keep going
 				return false;
 			break; // else instruction is complete
 		default:
@@ -288,10 +290,57 @@ bool db80::tick(uint32_t cycles) {
 		case 6:
  			*registers.regPairDest = registers.readBuffer.pair;
 			cpu.tState = 0;
-			cpu.state = cpu.nextState;
-			if (cpu.nextState != Z_OPCODE_FETCH) // some instructions end here, other keep going
+			cpu.state = cpu.nextState[cpu.statePtr++];
+			if (cpu.state != Z_OPCODE_FETCH) // some instructions end here, other keep going
 				return false;
 			break; // else instruction is complete
+		default:
+			return false;
+		}
+		break;
+	case Z_MEMORY_READ_EXT_IND:
+		switch (cpu.tState) {
+		case 1:
+			AddrPins = (*registers.addrSource)++;
+			CtrlPins.word |= (MREQ | RD);
+			return false;
+		case 2:
+			registers.readBuffer.l = DataPins;
+			CtrlPins.word &= ~(MREQ | RD);
+			return false;
+		case 3:
+			return false;
+		case 4:
+			AddrPins = (*registers.addrSource)++;
+			CtrlPins.word |= (MREQ | RD);
+			return false;
+		case 5:
+			registers.readBuffer.h = DataPins;	// nn in readBuffer, now read from nn
+			CtrlPins.word &= ~(MREQ | RD);
+			return false;
+		case 6:
+			return false;
+		case 7:
+			AddrPins = registers.readBuffer.pair;
+			CtrlPins.word |= (MREQ | RD);
+			return false;
+		case 8:
+			registers.readBuffer.l = DataPins;
+			CtrlPins.word &= ~(MREQ | RD);
+			return false;
+		case 9:
+			return false;
+		case 10:
+			AddrPins++;
+			CtrlPins.word |= (MREQ | RD);
+			return false;
+		case 11:
+			registers.readBuffer.h = DataPins;	// (nn) in readBuffer
+			CtrlPins.word &= ~(MREQ | RD);
+			return false;
+		case 12:
+			*registers.regPairDest = registers.readBuffer.pair;
+			break;
 		default:
 			return false;
 		}
@@ -337,7 +386,7 @@ bool db80::tick(uint32_t cycles) {
 			return false;
 		case 7:
 			cpu.tState = 0;
-			cpu.state = cpu.nextState;
+			cpu.state = cpu.nextState[cpu.statePtr++];
 			return false; // push complete
 		default:
 			return false;
@@ -423,14 +472,14 @@ bool db80::tick(uint32_t cycles) {
 	cpu.prefix = 0;
 
 	if (CtrlPins.NMI) {
-		cpu.nextState = Z_NMI;
+		cpu.state = Z_NMI;
 		registers.iff2 = registers.iff1;
 		registers.iff1 = 0;
 		return true;
 	}
 	// Maskable interrupt
 	else if (registers.iff1 && CtrlPins.INT) {
-		cpu.nextState = Z_INT_ACK;
+		cpu.state = Z_INT_ACK;
 		return true;
 	}
 
@@ -502,14 +551,13 @@ inline bool db80::decodeAndExecute(void) {
 		registers.addrDest = &registers.wz.pair;		// nn is destination
 		registers.writeBuffer.pair = registers.hl.pair;  // hl to nn
 		cpu.state = Z_MEMORY_READ_EXT;
-		cpu.nextState = Z_MEMORY_WRITE_EXT;
+		cpu.nextState[0] = Z_MEMORY_WRITE_EXT;
+		cpu.nextState[1] = Z_OPCODE_FETCH;
 		return false; // 12 cycles left
-	case 0x2A: // ld hl, (nn) (4,3,3,3,3)
-		registers.regPairDest = &registers.wz.pair;		// nn to wz
-		registers.addrSource = &registers.pc.pair;		// read ext from PC, so nn to pc
-		registers.addrDest = &registers.wz.pair;		// nn is destination
-		cpu.state = Z_MEMORY_READ_EXT;
-		cpu.nextState = Z_MEMORY_READ_EXT;				// read from nn into hl
+	case 0x2A: // ld hl, (nn) (4,3,3,3,3)				// TODO this is wrong, two reads in a row
+		registers.regPairDest = &registers.hl.pair;
+		registers.addrSource = &registers.pc.pair;		// read ext from PC
+		cpu.state = Z_MEMORY_READ_EXT_IND;
 		return false; // 12 cycles left
 	case 0x70: // ld (hl), b (4,3)
 		registers.writeBuffer.l = registers.bc.b;
@@ -589,8 +637,10 @@ inline bool db80::decodeAndExecute(void) {
 	case 0x34: // inc (hl) (4,4,3)
 		registers.regDest = &registers.tmp;
 		registers.addrSource = &registers.hl.pair;
+		registers.addrDest = &registers.hl.pair;	// write back to same location
 		cpu.state = Z_MEMORY_READ;
-		cpu.nextState = Z_INC_TEMP;
+		cpu.nextState[0] = Z_INC_TEMP;
+		cpu.nextState[1] = Z_OPCODE_FETCH;
 		return false; // 7 cycles left
 	case 0x3C: // inc a (4)
 		incReg(registers.af.a);
@@ -620,7 +670,8 @@ inline bool db80::decodeAndExecute(void) {
 		registers.regDest = &registers.tmp;
 		registers.addrSource = &registers.hl.pair;
 		cpu.state = Z_MEMORY_READ;
-		cpu.nextState = Z_DEC_TEMP;
+		cpu.nextState[0] = Z_DEC_TEMP;
+		cpu.nextState[1] = Z_OPCODE_FETCH;
 		return false; // 7 cycles left
 	case 0x3D: // dec a (4)
 		decReg(registers.af.a);
@@ -656,7 +707,8 @@ inline bool db80::decodeAndExecute(void) {
 		registers.regDest = &registers.readBuffer.l;
 		registers.addrDest = &registers.hl.pair;
 		cpu.state = Z_MEMORY_READ_PC;
-		cpu.nextState = Z_MEMORY_WRITE;
+		cpu.nextState[0] = Z_MEMORY_WRITE;
+		cpu.nextState[1] = Z_OPCODE_FETCH;
 		return false; // 6 cycles left
 	case 0x3E: // ld a, n (4,3)
 		registers.regDest = &registers.af.a;
@@ -726,25 +778,29 @@ inline bool db80::decodeAndExecute(void) {
 	case 0x10: // djnz d ( b != 0 (5,3,5) / b == 0 (5,3) )
 		registers.regDest = &registers.tmp;
 		cpu.state = Z_MEMORY_READ_PC;
-		cpu.nextState = Z_DJNZ;
+		cpu.nextState[0] = Z_DJNZ;
+		cpu.nextState[1] = Z_OPCODE_FETCH;
 		break; // 1+3 or 1+3+5 cycles left
 	case 0x18: // jr d - 12 (4,3,5)
 		registers.regDest = &registers.tmp;
 		cpu.state = Z_MEMORY_READ_PC;
-		cpu.nextState = Z_JR;
+		cpu.nextState[0] = Z_JR;
+		cpu.nextState[1] = Z_OPCODE_FETCH;
 		return false; // 8 cycles left
 	case 0x20: // jr nz, d ( Z_ZF == 0 (4,3,5) / Z_ZF == 1 (4,3) )
 		registers.regDest = &registers.tmp;
 		cpu.state = Z_MEMORY_READ_PC;
 		if (registers.af.f.Zero == 0) {
-			cpu.nextState = Z_JR;
+			cpu.nextState[0] = Z_JR;
+			cpu.nextState[1] = Z_OPCODE_FETCH;
 		}
 		break; // 3 or 3+5 cycles left
 	case 0x28: // jr z, d ( Z_ZF == 1 (4,3,5) / Z_ZF == 0 (4,3) )
 		registers.regDest = &registers.tmp;
 		cpu.state = Z_MEMORY_READ_PC;
 		if (registers.af.f.Zero == 1) {
-			cpu.nextState = Z_JR;
+			cpu.nextState[0] = Z_JR;
+			cpu.nextState[1] = Z_OPCODE_FETCH;
 		}
 		break; // 3 or 3+5 cycles left
 
@@ -764,7 +820,8 @@ inline bool db80::decodeAndExecute(void) {
 		registers.regPairDest = &registers.pc.pair;
 		registers.addrSource = &registers.pc.pair;
 		cpu.state = Z_PUSH_PC;
-		cpu.nextState = Z_MEMORY_READ_EXT;
+		cpu.nextState[0] = Z_MEMORY_READ_EXT;
+		cpu.nextState[1] = Z_OPCODE_FETCH;
 		return false; // 13 cycles left
 
 	case 0xD3: // out (n),a (4,3,4)
@@ -772,7 +829,8 @@ inline bool db80::decodeAndExecute(void) {
 		registers.writeBuffer.l = registers.af.a;
 		registers.regDest = &registers.wz.z;
 		cpu.state = Z_MEMORY_READ_PC;
-		cpu.nextState = Z_IO_WRITE;
+		cpu.nextState[0] = Z_IO_WRITE;
+		cpu.nextState[1] = Z_OPCODE_FETCH;
 		return false; // 7 cycles left
 
 	case 0xF3: // di (4)
@@ -785,7 +843,7 @@ inline bool db80::decodeAndExecute(void) {
 	}
 
 	// only reach here if instruction is complete
-	cpu.nextState = Z_OPCODE_FETCH;
+	cpu.state = Z_OPCODE_FETCH;
 	return true;
 }
 
