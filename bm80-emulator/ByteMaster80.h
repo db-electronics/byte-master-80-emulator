@@ -16,6 +16,12 @@
 #define BM80_RAM_SIZE_KB		512
 #define OPEN_BUS				0xFF
 
+constexpr uint8_t MEMORYSOURCESELECT = 0xFB;
+constexpr uint8_t BANKSELECT0 = 0xFC;
+constexpr uint8_t BANKSELECT1 = 0xFD;
+constexpr uint8_t BANKSELECT2 = 0xFE;
+constexpr uint8_t BANKSELECT3 = 0xFF;
+
 class ByteMaster80
 {
 public:

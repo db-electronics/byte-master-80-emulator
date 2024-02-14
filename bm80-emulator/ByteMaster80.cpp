@@ -332,24 +332,19 @@ bool ByteMaster80::tick(uint32_t cycles) {
 		case (db80::PINS::IORQ | db80::PINS::WR):
 			switch (z80.AddrPins & 0xFF) {
 				// addresses 0 to 7 are mirrored at 8 to 15
-			case 0x00:
-			case 0x08:
+			case BANKSELECT0:
 				bm.bankSelect[0] = z80.DataPins & 0x3F;
 				break;
-			case 0x01:
-			case 0x09:
+			case BANKSELECT1:
 				bm.bankSelect[1] = z80.DataPins;
 				break;
-			case 0x02:
-			case 0x0A:
+			case BANKSELECT2:
 				bm.bankSelect[2] = z80.DataPins;
 				break;
-			case 0x03:
-			case 0x0B:
+			case BANKSELECT3:
 				bm.bankSelect[3] = z80.DataPins;
 				break;
-			case 0x04:
-			case 0x0C:
+			case MEMORYSOURCESELECT:
 				bm.memorySourceSelect.byte = z80.DataPins & 0xFC;
 				break;
 			case 0x05:
