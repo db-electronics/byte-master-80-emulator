@@ -98,6 +98,7 @@ public:
 		Z_INC_TEMP,
 		Z_DEC_TEMP,
 		Z_MEMORY_READ,			// read memory at *registers.addrSource
+		Z_MEMORY_READ_IND,
 		Z_MEMORY_READ_PC,		// read memory at pc++
 		Z_MEMORY_READ_EXT,		// read memory extended at *registers.addrSource++ into wz
 		Z_MEMORY_READ_EXT_IND,
